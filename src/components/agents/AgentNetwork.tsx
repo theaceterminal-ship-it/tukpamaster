@@ -335,10 +335,10 @@ export function AgentNetwork({ tambola }: AgentNetworkProps) {
                 </div>
 
                 {/* Per-game breakdown */}
-                {Object.entries(stats.byGame).length > 0 && (
+                {Object.entries(stats.byGame).filter(([gid]) => gid !== '__none__').length > 0 && (
                   <div className="mt-3 space-y-1.5 border-t border-slate-100 pt-3">
                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Per Game</p>
-                    {Object.entries(stats.byGame).map(([gid, g]) => (
+                    {Object.entries(stats.byGame).filter(([gid]) => gid !== '__none__').map(([gid, g]) => (
                       <div key={gid} className="flex items-center gap-2 text-xs bg-slate-50 rounded-lg px-3 py-1.5">
                         <span className="flex-1 font-medium text-slate-700 truncate">{g.name}</span>
                         <span className="text-emerald-600 font-semibold">{g.sold} sold</span>

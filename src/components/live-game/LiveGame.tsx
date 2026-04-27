@@ -359,7 +359,6 @@ export function LiveGame({ tambola }: LiveGameProps) {
     sheets, scheduleGame, scheduledGames, removeScheduledGame, rescheduleGame, linkScheduledGame,
   } = tambola;
 
-  const [gameName,      setGameName]      = useState('');
   const [schedDialogOpen, setSchedDialogOpen] = useState(false);
   const [rescheduleId,  setRescheduleId]  = useState<string | null>(null);
   const [rescheduleAt,  setRescheduleAt]  = useState('');
@@ -373,12 +372,6 @@ export function LiveGame({ tambola }: LiveGameProps) {
   const pendingScheduled = scheduledGames.filter(g => !g.sessionId);
 
   // ── Setup handlers ──────────────────────────────────────────────────────────
-
-  const handleCreateGame = async () => {
-    if (!gameName.trim()) return;
-    await createGame(gameName.trim(), sheets.map(s => s.id));
-    setShowSetup(false);
-  };
 
   const handleLaunchScheduled = async (g: ScheduledGame) => {
     const dividends: Dividend[] = g.prizes.map((p, i) => ({
@@ -426,19 +419,26 @@ export function LiveGame({ tambola }: LiveGameProps) {
   if (showSetup || !currentGame) {
     return (
       <div className="max-w-2xl mx-auto space-y-6">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-slate-800 flex items-center justify-center gap-2">
-            <Radio className="w-6 h-6 text-red-500" /> Live Game Studio
-          </h2>
-          <p className="text-slate-500 mt-1">Set up and host your Tukpa game session.</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+              <Radio className="w-6 h-6 text-red-500" /> Live Game Studio
+            </h2>
+            <p className="text-slate-500 mt-1">Launch or schedule your Tukpa game.</p>
+          </div>
+          <Button onClick={() => setSchedDialogOpen(true)} className="gap-2 font-bold text-white" style={{ backgroundColor: '#0ea5e9' }}>
+            <Calendar className="w-4 h-4" /> Schedule New Game
+          </Button>
         </div>
 
+        <ScheduleGameDialog open={schedDialogOpen} onClose={() => setSchedDialogOpen(false)} defaultTicketPrice={tambola.sheetPrice} onSchedule={scheduleGame} />
+
         {/* Scheduled games */}
-        {pendingScheduled.length > 0 && (
+        {pendingScheduled.length > 0 ? (
           <Card className="border-amber-200">
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-base">
-                <Rocket className="w-4 h-4 text-amber-500" /> Launch a Scheduled Game
+                <Rocket className="w-4 h-4 text-amber-500" /> Scheduled Games
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 pb-2">
@@ -466,7 +466,7 @@ export function LiveGame({ tambola }: LiveGameProps) {
                         </div>
                       </div>
                       <Button size="sm" onClick={() => handleLaunchScheduled(g)} className="bg-red-500 hover:bg-red-600 text-white gap-1.5 text-xs shrink-0">
-                        <Play className="w-3 h-3" /> Launch
+                        <Play className="w-3 h-3" /> Start Live Now
                       </Button>
                     </div>
 
@@ -499,48 +499,15 @@ export function LiveGame({ tambola }: LiveGameProps) {
                 ))}
             </CardContent>
           </Card>
-        )}
-
-        {/* Ad-hoc game */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{pendingScheduled.length > 0 ? 'Or Create Ad-hoc Game' : 'Create New Game'}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="game-name">Game Name</Label>
-              <Input id="game-name" value={gameName} onChange={e => setGameName(e.target.value)} placeholder="e.g., Sunday Evening Tukpa" className="mt-1" />
-            </div>
-            <div className="flex items-center justify-between py-2 px-3 bg-slate-50 rounded-lg">
-              <span className="text-sm text-slate-600">Available Sheets</span>
-              <span className="font-medium">{sheets.length}</span>
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={handleCreateGame} disabled={!gameName.trim()} className="flex-1 bg-red-500 hover:bg-red-600 gap-2">
-                <Play className="w-4 h-4" /> Start Live Now
-              </Button>
-              <Button variant="outline" onClick={() => setSchedDialogOpen(true)} className="gap-2 text-slate-600">
-                <Calendar className="w-4 h-4" /> Schedule
-              </Button>
-            </div>
-            <ScheduleGameDialog open={schedDialogOpen} onClose={() => setSchedDialogOpen(false)} defaultTicketPrice={tambola.sheetPrice} onSchedule={scheduleGame} />
-          </CardContent>
-        </Card>
-
-        {tambola.gameHistory.length > 0 && (
-          <Card>
-            <CardHeader><CardTitle>Recent Games</CardTitle></CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {tambola.gameHistory.slice(-3).reverse().map(game => (
-                  <div key={game.id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
-                    <span className="text-sm font-medium">{game.name}</span>
-                    <span className="text-xs text-slate-500">{new Date(game.date).toLocaleDateString()}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+        ) : (
+          <div className="rounded-2xl p-12 text-center border-2 border-dashed border-slate-200">
+            <Calendar className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+            <p className="text-slate-500 font-medium">No games scheduled yet</p>
+            <p className="text-sm text-slate-400 mt-1 mb-4">Schedule a game to set prizes, sheets, and go live</p>
+            <Button onClick={() => setSchedDialogOpen(true)} className="gap-2 font-bold text-white" style={{ backgroundColor: '#0ea5e9' }}>
+              <Calendar className="w-4 h-4" /> Schedule a Game
+            </Button>
+          </div>
         )}
       </div>
     );
