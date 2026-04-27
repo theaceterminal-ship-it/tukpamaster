@@ -171,22 +171,21 @@ function renderSheetScaled(
   const sheetNum       = parseInt(sheet.id.replace('SHEET-', ''), 10) || 1;
   const firstTicketNum = (sheetNum - 1) * 6 + 1;
 
-  // Compact-style scaled layout
+  // Compact-style scaled layout — tight bounding box (no centering gap or page margins)
   const sbW    = 18 * scale;
   const cW     = 15 * scale;
   const rH     = 13 * scale;
   const gridW  = 9 * cW;
   const gridH  = 3 * rH;
-  const pageW  = 210 * scale;
-  const gL     = ox + sbW + (pageW - sbW - gridW) / 2;
+  const gL     = ox + sbW;          // left-align grid against sidebar
   const blockH = 48 * scale;
-  let   yPos   = oy + 6 * scale;
+  let   yPos   = oy;                 // no top padding — content fills cell from oy
 
   // Vertical "Sheet No." label in sidebar
   doc.setFontSize(Math.max(4, 14 * scale));
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 0, 0);
-  doc.text(`#${sheetNum}`, ox + sbW / 2, oy + (297 * scale) / 2, { angle: 90, align: 'center' });
+  doc.text(`#${sheetNum}`, ox + sbW / 2, oy + (288 * scale) / 2, { angle: 90, align: 'center' });
 
   for (let i = 0; i < sheet.tickets.length; i++) {
     const ticket     = sheet.tickets[i];
@@ -242,7 +241,13 @@ export function buildMultiUpPDF(sheets: Sheet[], sheetsPerPage: number, config: 
   const gap    = sheetsPerPage <= 2 ? 4 : 2;
   const cellW  = (pageW - margin * 2 - gap * (cols - 1)) / cols;
   const cellH  = (pageH - margin * 2 - gap * (rows - 1)) / rows;
-  const scale  = Math.min(cellW / 210, cellH / 297);
+
+  // Use tight content bounds: sidebar (18mm) + 9-col grid (135mm) × 6 ticket blocks (48mm each)
+  const NATURAL_W = 153;
+  const NATURAL_H = 288;
+  const scale     = Math.min(cellW / NATURAL_W, cellH / NATURAL_H);
+  const scaledW   = NATURAL_W * scale;
+  const scaledH   = NATURAL_H * scale;
 
   const doc        = new jsPDF({ unit: 'mm', format: 'a4', orientation });
   const totalPages = Math.ceil(sheets.length / sheetsPerPage);
@@ -251,12 +256,10 @@ export function buildMultiUpPDF(sheets: Sheet[], sheetsPerPage: number, config: 
     if (pageIdx > 0) doc.addPage();
     const batch = sheets.slice(pageIdx * sheetsPerPage, (pageIdx + 1) * sheetsPerPage);
     batch.forEach((sheet, pos) => {
-      const col     = pos % cols;
-      const row     = Math.floor(pos / cols);
-      const scaledW = 210 * scale;
-      const scaledH = 297 * scale;
-      const ox = margin + col * (cellW + gap) + (cellW - scaledW) / 2;
-      const oy = margin + row * (cellH + gap) + (cellH - scaledH) / 2;
+      const col = pos % cols;
+      const row = Math.floor(pos / cols);
+      const ox  = margin + col * (cellW + gap) + (cellW - scaledW) / 2;
+      const oy  = margin + row * (cellH + gap) + (cellH - scaledH) / 2;
       renderSheetScaled(doc, sheet, config, ox, oy, scale);
     });
   }

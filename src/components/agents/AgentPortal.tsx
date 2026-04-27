@@ -108,8 +108,11 @@ function GameGroupCard({
   const [search,      setSearch]      = useState('');
   const [page,        setPage]        = useState(1);
   const [selected,    setSelected]    = useState<Set<string>>(new Set());
-  const [layout,      setLayout]      = useState(1);
+  const [layout,      setLayout]      = useState(2);
   const [downloading, setDownloading] = useState(false);
+  const [buyerOpen,   setBuyerOpen]   = useState(false);
+  const [buyerName,   setBuyerName]   = useState('');
+  const [buyerPhone,  setBuyerPhone]  = useState('');
 
   const sold      = sheets.filter(s => s.status === 'sold').length;
   const available = sheets.filter(s => s.status !== 'sold').length;
@@ -151,18 +154,86 @@ function GameGroupCard({
 
   const selectedSheets = sheets.filter(s => selected.has(s.id));
 
-  const handlePrintSelected = () => {
+  const openBuyerDialog = () => {
     if (selectedSheets.length === 0 || downloading) return;
+    setBuyerName(''); setBuyerPhone('');
+    setBuyerOpen(true);
+  };
+
+  const handleConfirmSale = () => {
+    if (!buyerName.trim()) return;
+    setBuyerOpen(false);
     setDownloading(true);
     try {
       buildMultiUpPDF(selectedSheets, layout, DEFAULT_LAYOUT)
         .save(`${gameName.replace(/\s+/g, '-')}-${layout}pp.pdf`);
+      selectedSheets.forEach(s => onSell(s.id, buyerName.trim(), buyerPhone.trim()));
+      setSelected(new Set());
     } finally {
       setDownloading(false);
     }
   };
 
   return (
+    <>
+    {/* Buyer info dialog — shown before PDF download */}
+    <Dialog open={buyerOpen} onOpenChange={v => { if (!v) setBuyerOpen(false); }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <User className="w-4 h-4 text-blue-500" /> Buyer Details
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-1 py-1 text-sm">
+          <div className="bg-slate-50 rounded-lg px-3 py-2 flex justify-between">
+            <span className="text-slate-500">Sheets</span>
+            <span className="font-semibold text-slate-700">{selectedSheets.length} selected</span>
+          </div>
+          <div className="bg-slate-50 rounded-lg px-3 py-2 flex justify-between">
+            <span className="text-slate-500">Layout</span>
+            <span className="font-semibold text-slate-700">{layout} per page</span>
+          </div>
+          <div className="bg-slate-50 rounded-lg px-3 py-2 flex justify-between">
+            <span className="text-slate-500">Amount</span>
+            <span className="font-semibold text-emerald-600">₹{(selectedSheets.length * sheetPrice).toLocaleString()}</span>
+          </div>
+        </div>
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs text-slate-600">Buyer Name *</Label>
+            <Input
+              value={buyerName}
+              onChange={e => setBuyerName(e.target.value)}
+              placeholder="Customer full name"
+              className="mt-1"
+              onKeyDown={e => e.key === 'Enter' && handleConfirmSale()}
+              autoFocus
+            />
+          </div>
+          <div>
+            <Label className="text-xs text-slate-600">Phone (optional)</Label>
+            <Input
+              value={buyerPhone}
+              onChange={e => setBuyerPhone(e.target.value)}
+              placeholder="+91 98765 43210"
+              className="mt-1"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+          <Button
+            onClick={handleConfirmSale}
+            disabled={!buyerName.trim()}
+            className="gap-2 text-white"
+            style={{ backgroundColor: '#0ea5e9' }}
+          >
+            <Download className="w-3.5 h-3.5" /> Download & Mark Sold
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
     <div className="rounded-2xl overflow-hidden" style={CARD}>
       {/* Game header */}
       <div className="flex items-center gap-4 px-5 py-4">
@@ -242,12 +313,12 @@ function GameGroupCard({
                 </button>
                 <Button
                   size="sm"
-                  onClick={handlePrintSelected}
+                  onClick={openBuyerDialog}
                   disabled={downloading}
                   className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5 text-xs h-8"
                 >
                   <Download className="w-3 h-3" />
-                  {downloading ? 'Downloading…' : `Download ${selected.size} PDF${selected.size > 1 ? 's' : ''}`}
+                  {downloading ? 'Downloading…' : `Download ${selected.size} sheet${selected.size > 1 ? 's' : ''}`}
                 </Button>
               </div>
             </div>
@@ -328,6 +399,7 @@ function GameGroupCard({
         </div>
       )}
     </div>
+    </>
   );
 }
 
