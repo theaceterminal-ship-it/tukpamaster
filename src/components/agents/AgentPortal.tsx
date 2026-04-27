@@ -508,21 +508,20 @@ function AgentDashboard({ agent, onLogout }: { agent: Agent; onLogout: () => voi
     [tambola.sheets, agent.id, endedScheduledIds],
   );
 
-  // Group by scheduledGameId; unassigned-to-game sheets go under a generic group
+  // Group by scheduledGameId; skip sheets not linked to any scheduled game
   const gameGroups = useMemo(() => {
     const groups: Record<string, { id: string; name: string; sheets: Sheet[] }> = {};
     mySheets.forEach(s => {
-      const gid  = s.scheduledGameId ?? '__unassigned__';
+      if (!s.scheduledGameId) return;
+      const gid = s.scheduledGameId;
       if (!groups[gid]) {
         const game = tambola.scheduledGames.find(g => g.id === gid);
-        groups[gid] = { id: gid, name: game?.name ?? 'General Sheets', sheets: [] };
+        if (!game) return;
+        groups[gid] = { id: gid, name: game.name, sheets: [] };
       }
       groups[gid].sheets.push(s);
     });
-    // Sort: scheduled games by date first, unassigned last
     return Object.values(groups).sort((a, b) => {
-      if (a.id === '__unassigned__') return 1;
-      if (b.id === '__unassigned__') return -1;
       const ga = tambola.scheduledGames.find(g => g.id === a.id);
       const gb = tambola.scheduledGames.find(g => g.id === b.id);
       return new Date(ga?.scheduledAt ?? 0).getTime() - new Date(gb?.scheduledAt ?? 0).getTime();
