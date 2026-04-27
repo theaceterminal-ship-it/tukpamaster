@@ -107,7 +107,7 @@ export function Dashboard({ tambola }: DashboardProps) {
   const pendingAmount   = allPending.reduce((s, o) => s + o.amount, 0);
 
   // ── Launch ──────────────────────────────────────────────────────────────────
-  const handleLaunch = () => {
+  const handleLaunch = async () => {
     if (!focusedGame) return;
     const dividends: Dividend[] = focusedGame.prizes.map((p, i) => ({
       id: `DIV-${Date.now()}-${i}`,
@@ -119,7 +119,7 @@ export function Dashboard({ tambola }: DashboardProps) {
     if (focusedGame.hasJackpot) {
       dividends.push({ id: `DIV-${Date.now()}-jp`, type: 'full-house', name: 'Jackpot', prize: focusedGame.jackpotAmount, claimed: false });
     }
-    const game = createGame(focusedGame.name, focusedGame.sheetIds, dividends);
+    const game = await createGame(focusedGame.name, focusedGame.sheetIds, dividends);
     linkScheduledGame(focusedGame.id, game.id);
     setCurrentPage('live-game');
   };

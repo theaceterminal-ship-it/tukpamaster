@@ -32,15 +32,15 @@ export function LiveGame({ tambola }: LiveGameProps) {
   // Scheduled games not yet launched
   const pendingScheduled = scheduledGames.filter(g => !g.sessionId);
 
-  const handleCreateGame = () => {
+  const handleCreateGame = async () => {
     if (gameName.trim()) {
       const allSheetIds = sheets.map(s => s.id);
-      createGame(gameName.trim(), allSheetIds);
+      await createGame(gameName.trim(), allSheetIds);
       setShowSetup(false);
     }
   };
 
-  const handleLaunchScheduled = (g: ScheduledGame) => {
+  const handleLaunchScheduled = async (g: ScheduledGame) => {
     const dividends: Dividend[] = g.prizes.map((p, i) => ({
       id: `DIV-${Date.now()}-${i}`,
       type: p.type as DividendType,
@@ -57,7 +57,7 @@ export function LiveGame({ tambola }: LiveGameProps) {
         claimed: false,
       });
     }
-    const game = createGame(g.name, g.sheetIds, dividends);
+    const game = await createGame(g.name, g.sheetIds, dividends);
     linkScheduledGame(g.id, game.id);
     setShowSetup(false);
   };

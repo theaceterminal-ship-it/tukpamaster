@@ -360,9 +360,9 @@ export function Marketplace() {
     setCart(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   };
 
-  const handleSubmitOrder = () => {
+  const handleSubmitOrder = async () => {
     if (!name.trim() || cart.size === 0) return;
-    const newOrder = tambola.createOrder(name.trim(), phone.trim(), [...cart], utr || undefined, price);
+    const newOrder = await tambola.createOrder(name.trim(), phone.trim(), [...cart], utr || undefined, price);
     setOrder(newOrder);
     setStep('submitted');
   };

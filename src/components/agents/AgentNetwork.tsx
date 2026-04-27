@@ -81,7 +81,7 @@ function AddAgentDialog({ onAdd }: { onAdd: (name: string, phone: string, commis
 interface AssignDialogProps {
   agent: Agent;
   maxSheet: number;
-  onAssign: (agentId: string, from: number, to: number) => number;
+  onAssign: (agentId: string, from: number, to: number) => number | Promise<number>;
 }
 
 function AssignSheetsDialog({ agent, maxSheet, onAssign }: AssignDialogProps) {
@@ -94,9 +94,9 @@ function AssignSheetsDialog({ agent, maxSheet, onAssign }: AssignDialogProps) {
   const toN   = parseInt(to)   || 0;
   const valid = fromN > 0 && toN >= fromN;
 
-  const handleAssign = () => {
+  const handleAssign = async () => {
     if (!valid) return;
-    const count = onAssign(agent.id, fromN, toN);
+    const count = await onAssign(agent.id, fromN, toN);
     setResult(count);
   };
 

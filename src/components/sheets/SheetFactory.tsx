@@ -343,7 +343,7 @@ export function SheetFactory({ tambola }: SheetFactoryProps) {
 
   const cleanupOrphans = () => {
     if (!window.confirm(`Delete ${orphanSheets.length} orphan sheets (not linked to any game)? This cannot be undone.`)) return;
-    tambola.setSheets(prev => prev.filter(s => s.scheduledGameId));
+    tambola.deleteSheetsById(orphanSheets.map(s => s.id));
   };
 
   const toggleSelect = (id: string) => {
