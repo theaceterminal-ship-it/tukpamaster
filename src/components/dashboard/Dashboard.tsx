@@ -4,7 +4,7 @@ import {
   Users, Wallet, Calendar, ArrowRight, Clock,
   TrendingUp, Package, Star,
 } from 'lucide-react';
-import type { AppPage, Dividend, DividendType } from '@/types';
+import type { Dividend, DividendType } from '@/types';
 import type { useTambola } from '@/hooks/useTambola';
 import { Button } from '@/components/ui/button';
 
