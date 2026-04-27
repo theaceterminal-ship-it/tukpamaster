@@ -45,7 +45,7 @@ export function Dashboard({ tambola }: DashboardProps) {
   const {
     scheduledGames, sheets, orders, agents,
     currentGame, setCurrentPage,
-    confirmOrder, rejectOrder, createGame, linkScheduledGame, gameHistory,
+    confirmOrder, rejectOrder, createGame, linkScheduledGame,
   } = tambola;
 
   // Active = no sessionId yet, OR sessionId is the currently running game
@@ -177,7 +177,7 @@ export function Dashboard({ tambola }: DashboardProps) {
                 <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">All Scheduled Games</p>
                 <div className="space-y-2">
                   {sortedScheduled.map(g => {
-                    const ended = !!(g.sessionId && completedSessionIds.has(g.sessionId));
+                    const ended = !!(g.sessionId && g.sessionId !== currentGame?.id);
                     return (
                       <div key={g.id} className="flex items-center justify-between px-4 py-3 rounded-xl bg-gray-50">
                         <div className="flex items-center gap-3">
