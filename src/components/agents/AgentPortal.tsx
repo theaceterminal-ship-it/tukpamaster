@@ -10,8 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { buildSheetPDF, DEFAULT_LAYOUT } from '@/lib/pdfRenderer';
-import type { LayoutConfig } from '@/lib/pdfRenderer';
+import { buildSheetPDF, buildMultiUpPDF, DEFAULT_LAYOUT } from '@/lib/pdfRenderer';
 
 const PAGE_SIZE = 100;
 
@@ -31,13 +30,6 @@ const PRINT_LAYOUTS: { label: string; sheetsPerPage: number }[] = [
   { label: '12 per page', sheetsPerPage: 12 },
 ];
 
-// Download sheets as individual PDFs (one file per sheet) with staggered triggers
-async function downloadIndividualPDFs(sheets: Sheet[], config: LayoutConfig) {
-  for (let i = 0; i < sheets.length; i++) {
-    buildSheetPDF(sheets[i], config).save(`${sheets[i].id}.pdf`);
-    if (i < sheets.length - 1) await new Promise(r => setTimeout(r, 400));
-  }
-}
 
 // ─── Mark Sold Dialog ─────────────────────────────────────────────────────────
 
@@ -159,11 +151,15 @@ function GameGroupCard({
 
   const selectedSheets = sheets.filter(s => selected.has(s.id));
 
-  const handlePrintSelected = async () => {
+  const handlePrintSelected = () => {
     if (selectedSheets.length === 0 || downloading) return;
     setDownloading(true);
-    await downloadIndividualPDFs(selectedSheets, DEFAULT_LAYOUT);
-    setDownloading(false);
+    try {
+      buildMultiUpPDF(selectedSheets, layout, DEFAULT_LAYOUT)
+        .save(`${gameName.replace(/\s+/g, '-')}-${layout}pp.pdf`);
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (

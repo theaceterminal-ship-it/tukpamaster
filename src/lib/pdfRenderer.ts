@@ -144,3 +144,122 @@ export function buildBulkPDF(sheets: Sheet[], config: LayoutConfig): jsPDF {
   });
   return doc;
 }
+
+// ─── Multi-up layout (replicates Ticket Printer grid logic) ──────────────────
+
+function getGridConfig(n: number): { cols: number; rows: number; orientation: 'portrait' | 'landscape' } {
+  switch (n) {
+    case 1:  return { cols: 1, rows: 1, orientation: 'portrait'  };
+    case 2:  return { cols: 2, rows: 1, orientation: 'landscape' };
+    case 3:  return { cols: 3, rows: 1, orientation: 'landscape' };
+    case 4:  return { cols: 4, rows: 1, orientation: 'landscape' };
+    case 5:  return { cols: 5, rows: 1, orientation: 'landscape' };
+    case 6:  return { cols: 3, rows: 2, orientation: 'landscape' };
+    case 12: return { cols: 6, rows: 2, orientation: 'landscape' };
+    default: {
+      const cols = Math.ceil(Math.sqrt(n));
+      return { cols, rows: Math.ceil(n / cols), orientation: 'landscape' };
+    }
+  }
+}
+
+// Renders one sheet scaled to fit inside a cell at (ox, oy) with given scale factor
+function renderSheetScaled(
+  doc: jsPDF, sheet: Sheet, config: LayoutConfig,
+  ox: number, oy: number, scale: number,
+) {
+  const sheetNum       = parseInt(sheet.id.replace('SHEET-', ''), 10) || 1;
+  const firstTicketNum = (sheetNum - 1) * 6 + 1;
+
+  // Compact-style scaled layout
+  const sbW    = 18 * scale;
+  const cW     = 15 * scale;
+  const rH     = 13 * scale;
+  const gridW  = 9 * cW;
+  const gridH  = 3 * rH;
+  const pageW  = 210 * scale;
+  const gL     = ox + sbW + (pageW - sbW - gridW) / 2;
+  const blockH = 48 * scale;
+  let   yPos   = oy + 6 * scale;
+
+  // Vertical "Sheet No." label in sidebar
+  doc.setFontSize(Math.max(4, 14 * scale));
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 0, 0);
+  doc.text(`#${sheetNum}`, ox + sbW / 2, oy + (297 * scale) / 2, { angle: 90, align: 'center' });
+
+  for (let i = 0; i < sheet.tickets.length; i++) {
+    const ticket     = sheet.tickets[i];
+    const [r, g, b]  = COMPACT_COLORS[i % 6];
+    const ticketNum  = String(firstTicketNum + i).padStart(3, '0');
+    const gCx        = gL + gridW / 2;
+
+    // Event name (skip at very small scale to avoid clutter)
+    if (scale > 0.28) {
+      doc.setFontSize(Math.max(3, 11 * scale));
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text(config.eventName, gCx, yPos + 5 * scale, { align: 'center' });
+    }
+
+    // Ticket number
+    doc.setFontSize(Math.max(3, 8 * scale));
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(90, 90, 90);
+    doc.text(ticketNum, gL + gridW, yPos + 5 * scale, { align: 'right' });
+
+    // Grid
+    const gridY = yPos + 7 * scale;
+    doc.setDrawColor(r, g, b);
+    doc.setLineWidth(Math.max(0.08, 0.55 * scale));
+    doc.rect(gL, gridY, gridW, gridH);
+    for (let row = 1; row < 3; row++)
+      doc.line(gL, gridY + row * rH, gL + gridW, gridY + row * rH);
+    for (let col = 1; col < 9; col++)
+      doc.line(gL + col * cW, gridY, gL + col * cW, gridY + gridH);
+
+    // Numbers
+    doc.setFontSize(Math.max(4, 16 * scale));
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    for (let row = 0; row < 3; row++) {
+      for (let col = 0; col < 9; col++) {
+        const num = ticket.numbers[row][col];
+        if (num !== null)
+          doc.text(String(num), gL + col * cW + cW / 2, gridY + row * rH + rH * 0.64, { align: 'center' });
+      }
+    }
+
+    yPos += blockH;
+  }
+}
+
+export function buildMultiUpPDF(sheets: Sheet[], sheetsPerPage: number, config: LayoutConfig): jsPDF {
+  const { cols, rows, orientation } = getGridConfig(sheetsPerPage);
+  const pageW  = orientation === 'landscape' ? 297 : 210;
+  const pageH  = orientation === 'landscape' ? 210 : 297;
+  const margin = sheetsPerPage <= 2 ? 5 : 3;
+  const gap    = sheetsPerPage <= 2 ? 4 : 2;
+  const cellW  = (pageW - margin * 2 - gap * (cols - 1)) / cols;
+  const cellH  = (pageH - margin * 2 - gap * (rows - 1)) / rows;
+  const scale  = Math.min(cellW / 210, cellH / 297);
+
+  const doc        = new jsPDF({ unit: 'mm', format: 'a4', orientation });
+  const totalPages = Math.ceil(sheets.length / sheetsPerPage);
+
+  for (let pageIdx = 0; pageIdx < totalPages; pageIdx++) {
+    if (pageIdx > 0) doc.addPage();
+    const batch = sheets.slice(pageIdx * sheetsPerPage, (pageIdx + 1) * sheetsPerPage);
+    batch.forEach((sheet, pos) => {
+      const col     = pos % cols;
+      const row     = Math.floor(pos / cols);
+      const scaledW = 210 * scale;
+      const scaledH = 297 * scale;
+      const ox = margin + col * (cellW + gap) + (cellW - scaledW) / 2;
+      const oy = margin + row * (cellH + gap) + (cellH - scaledH) / 2;
+      renderSheetScaled(doc, sheet, config, ox, oy, scale);
+    });
+  }
+
+  return doc;
+}
