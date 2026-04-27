@@ -206,28 +206,39 @@ export function AgentNetwork({ tambola }: AgentNetworkProps) {
     ? Math.max(...tambola.sheets.map(s => parseInt(s.id.replace('SHEET-',''),10)))
     : 0;
 
+  // Exclude sheets from ended games
+  const completedSessionIds = new Set(tambola.gameHistory.map(g => g.id));
+  const endedScheduledIds   = new Set(
+    tambola.scheduledGames.filter(g => g.sessionId && completedSessionIds.has(g.sessionId)).map(g => g.id),
+  );
+  const activeSheets = tambola.sheets.filter(
+    s => !(s.scheduledGameId && endedScheduledIds.has(s.scheduledGameId)),
+  );
+
   const downloadAgentSheets = (agent: Agent) => {
-    const agentSheets = tambola.sheets.filter(s => s.assignedTo === agent.id);
+    const agentSheets = activeSheets.filter(s => s.assignedTo === agent.id);
     if (agentSheets.length === 0) return;
     const doc = buildBulkPDF(agentSheets, DEFAULT_CONFIG);
     doc.save(`agent-${agent.name.replace(/\s+/g,'-')}-sheets.pdf`);
   };
 
   const agentStats = (agent: Agent) => {
-    const assigned  = tambola.sheets.filter(s => s.assignedTo === agent.id);
+    const assigned  = activeSheets.filter(s => s.assignedTo === agent.id);
     const sold      = assigned.filter(s => s.status === 'sold').length;
     const available = assigned.filter(s => s.status !== 'sold').length;
     const collected = assigned
       .filter(s => s.status === 'sold')
       .reduce((sum, s) => sum + (s.price ?? tambola.sheetPrice), 0);
 
-    // Per-game breakdown
+    // Per-game breakdown (named games only)
     const byGame: Record<string, { name: string; sold: number; remaining: number; collected: number }> = {};
     assigned.forEach(s => {
-      const gid  = s.scheduledGameId ?? '__none__';
+      if (!s.scheduledGameId) return;
+      const gid  = s.scheduledGameId;
       if (!byGame[gid]) {
         const game = tambola.scheduledGames.find(g => g.id === gid);
-        byGame[gid] = { name: game?.name ?? 'General', sold: 0, remaining: 0, collected: 0 };
+        if (!game) return;
+        byGame[gid] = { name: game.name, sold: 0, remaining: 0, collected: 0 };
       }
       if (s.status === 'sold') {
         byGame[gid].sold++;
@@ -258,9 +269,9 @@ export function AgentNetwork({ tambola }: AgentNetworkProps) {
       {/* ── Summary stats ── */}
       <div className="grid grid-cols-3 gap-4 w-full">
         {[
-          { label: 'Total Agents',   value: tambola.agents.length,                                                      icon: Users },
-          { label: 'Assigned',       value: tambola.sheets.filter(s => s.status === 'assigned').length,                 icon: Package },
-          { label: 'Sold via Agent', value: tambola.sheets.filter(s => s.status === 'sold' && s.assignedTo).length,     icon: TrendingUp },
+          { label: 'Total Agents',   value: tambola.agents.length,                                                    icon: Users },
+          { label: 'Assigned',       value: activeSheets.filter(s => s.status === 'assigned').length,                  icon: Package },
+          { label: 'Sold via Agent', value: activeSheets.filter(s => s.status === 'sold' && s.assignedTo).length,      icon: TrendingUp },
         ].map(c => (
           <div key={c.label} className="rounded-xl p-4 flex items-center gap-3" style={CARD}>
             <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(232,98,42,0.1)' }}>
