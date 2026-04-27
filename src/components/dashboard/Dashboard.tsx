@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   CheckCircle2, XCircle, Radio, Ticket,
   Users, Wallet, Calendar, ArrowRight, Clock,
-  TrendingUp, Package, Star,
+  TrendingUp, Package, Star, Link2, Check,
 } from 'lucide-react';
 import type { Dividend, DividendType } from '@/types';
 import type { useTambola } from '@/hooks/useTambola';
@@ -42,6 +42,16 @@ function timeAgo(iso: string) {
 }
 
 export function Dashboard({ tambola }: DashboardProps) {
+  const [copied, setCopied] = useState(false);
+
+  const copyMarketplaceLink = () => {
+    const url = `${window.location.origin}/marketplace`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
   const {
     scheduledGames, sheets, orders, agents,
     currentGame, setCurrentPage,
@@ -243,8 +253,18 @@ export function Dashboard({ tambola }: DashboardProps) {
               </Button>
             )}
             <button
+              onClick={copyMarketplaceLink}
+              className={`w-full mt-2 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border ${
+                copied
+                  ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-300'
+                  : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              {copied ? <><Check className="w-3 h-3" /> Link Copied!</> : <><Link2 className="w-3 h-3" /> Share Marketplace</>}
+            </button>
+            <button
               onClick={() => setCurrentPage('live-game')}
-              className="w-full mt-2 text-xs text-slate-500 hover:text-slate-300 transition-colors flex items-center justify-center gap-1"
+              className="w-full mt-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors flex items-center justify-center gap-1"
             >
               All games <ArrowRight className="w-3 h-3" />
             </button>
