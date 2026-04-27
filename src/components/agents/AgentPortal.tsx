@@ -4,13 +4,14 @@ import type { Agent, Sheet } from '@/types';
 import {
   Download, Package, ShoppingBag, Dice5, Eye, EyeOff,
   Search, X, Phone, Wallet, ChevronLeft, ChevronRight,
-  User, LogOut, ChevronDown, ChevronUp, Printer,
+  User, LogOut, ChevronDown, ChevronUp, Printer, CheckSquare, Square,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { buildSheetPDF, DEFAULT_LAYOUT, type LayoutConfig } from '@/lib/pdfRenderer';
+import { buildSheetPDF, DEFAULT_LAYOUT } from '@/lib/pdfRenderer';
+import type { LayoutConfig } from '@/lib/pdfRenderer';
 
 const PAGE_SIZE = 100;
 
@@ -100,75 +101,6 @@ function MarkSoldDialog({ sheet, price, onConfirm }: {
   );
 }
 
-// ─── Print Layout Selector ────────────────────────────────────────────────────
-
-function PrintLayoutDialog({ sheets, config }: { sheets: Sheet[]; config: LayoutConfig }) {
-  const [open,     setOpen]     = useState(false);
-  const [layout,   setLayout]   = useState(6);
-  const [loading,  setLoading]  = useState(false);
-
-  const handleDownload = async () => {
-    setLoading(true);
-    // For 1-per-page: individual files. For others: we group into multi-sheet pages.
-    // Since our PDF renderer builds one doc per sheet, for "X per page" we trigger
-    // individual downloads (Ticket Printer approach: each sheet its own file, print X per page in print dialog).
-    await downloadIndividualPDFs(sheets, config);
-    setLoading(false);
-    setOpen(false);
-  };
-
-  return (
-    <>
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)} className="gap-1.5 h-8 text-xs">
-        <Printer className="w-3 h-3" /> Print Setup
-      </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Printer className="w-4 h-4" /> Print Layout
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <p className="text-sm text-slate-500">
-              Each sheet downloads as its own PDF. When printing, use your browser's print settings to arrange multiple sheets per page.
-            </p>
-            <div>
-              <Label className="text-xs text-slate-600 mb-2 block">Sheets per printed page (reference)</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {PRINT_LAYOUTS.map(l => (
-                  <button
-                    key={l.sheetsPerPage}
-                    onClick={() => setLayout(l.sheetsPerPage)}
-                    className={`border rounded-lg py-2 text-xs font-medium transition-colors ${
-                      layout === l.sheetsPerPage
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-slate-200 text-slate-600 hover:border-slate-300'
-                    }`}
-                  >
-                    {l.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="bg-slate-50 rounded-lg px-3 py-2 text-sm flex justify-between">
-              <span className="text-slate-500">Total sheets</span>
-              <span className="font-semibold">{sheets.length}</span>
-            </div>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-            <Button onClick={handleDownload} disabled={loading || sheets.length === 0} className="font-bold text-white gap-2" style={{ backgroundColor: '#0ea5e9' }}>
-              <Download className="w-3.5 h-3.5" />
-              {loading ? 'Downloading…' : `Download All (${sheets.length})`}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}
-
 // ─── Game Group Card ──────────────────────────────────────────────────────────
 
 function GameGroupCard({
@@ -180,9 +112,11 @@ function GameGroupCard({
   onSell: (sheetId: string, name: string, phone: string) => void;
   onPreview: (sheet: Sheet) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const [search,   setSearch]   = useState('');
-  const [page,     setPage]     = useState(1);
+  const [expanded,    setExpanded]    = useState(false);
+  const [search,      setSearch]      = useState('');
+  const [page,        setPage]        = useState(1);
+  const [selected,    setSelected]    = useState<Set<string>>(new Set());
+  const [layout,      setLayout]      = useState(1);
   const [downloading, setDownloading] = useState(false);
 
   const sold      = sheets.filter(s => s.status === 'sold').length;
@@ -201,14 +135,34 @@ function GameGroupCard({
       .reverse();
   }, [sheets, search]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage   = Math.min(page, totalPages);
-  const pageItems  = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const totalPages  = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage    = Math.min(page, totalPages);
+  const pageItems   = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const allPageSelected = pageItems.length > 0 && pageItems.every(s => selected.has(s.id));
 
-  const handleDownloadAll = async () => {
-    if (sheets.length === 0 || downloading) return;
+  const toggleSheet = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const togglePageAll = () => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (allPageSelected) pageItems.forEach(s => next.delete(s.id));
+      else pageItems.forEach(s => next.add(s.id));
+      return next;
+    });
+  };
+
+  const selectedSheets = sheets.filter(s => selected.has(s.id));
+
+  const handlePrintSelected = async () => {
+    if (selectedSheets.length === 0 || downloading) return;
     setDownloading(true);
-    await downloadIndividualPDFs(sheets, DEFAULT_LAYOUT);
+    await downloadIndividualPDFs(selectedSheets, DEFAULT_LAYOUT);
     setDownloading(false);
   };
 
@@ -225,39 +179,25 @@ function GameGroupCard({
             <span className="text-amber-600 font-semibold">₹{revenue.toLocaleString()}</span>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <PrintLayoutDialog sheets={sheets} config={DEFAULT_LAYOUT} />
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleDownloadAll}
-            disabled={sheets.length === 0 || downloading}
-            className="gap-1.5 h-8 text-xs"
-          >
-            <Download className="w-3 h-3" />
-            {downloading ? 'Saving…' : `All PDFs (${sheets.length})`}
-          </Button>
-          <button
-            onClick={() => setExpanded(v => !v)}
-            className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg px-2.5 py-1.5"
-          >
-            {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-            {expanded ? 'Hide' : 'Sheets'}
-          </button>
-        </div>
+        <button
+          onClick={() => setExpanded(v => !v)}
+          className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg px-2.5 py-1.5 shrink-0"
+        >
+          {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          {expanded ? 'Hide' : 'Sheets'}
+        </button>
       </div>
 
       {/* Progress bar */}
       <div className="h-1.5 bg-slate-100">
-        <div
-          className="h-full bg-emerald-400 transition-all"
-          style={{ width: sheets.length > 0 ? `${Math.round((sold / sheets.length) * 100)}%` : '0%' }}
-        />
+        <div className="h-full bg-emerald-400 transition-all" style={{ width: sheets.length > 0 ? `${Math.round((sold / sheets.length) * 100)}%` : '0%' }} />
       </div>
 
       {/* Expanded sheet list */}
       {expanded && (
         <div className="p-4 space-y-3 border-t border-slate-100">
+
+          {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
             <input
@@ -274,21 +214,80 @@ function GameGroupCard({
             )}
           </div>
 
+          {/* Print toolbar — appears when sheets are selected */}
+          {selected.size > 0 && (
+            <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex-wrap">
+              <span className="text-sm font-semibold text-blue-800 flex items-center gap-1.5 shrink-0">
+                <Printer className="w-4 h-4" />
+                {selected.size} sheet{selected.size > 1 ? 's' : ''} selected
+              </span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs text-blue-600 shrink-0">per page:</span>
+                {PRINT_LAYOUTS.map(l => (
+                  <button
+                    key={l.sheetsPerPage}
+                    onClick={() => setLayout(l.sheetsPerPage)}
+                    className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition-colors ${
+                      layout === l.sheetsPerPage
+                        ? 'bg-blue-600 border-blue-600 text-white'
+                        : 'bg-white border-blue-200 text-blue-700 hover:border-blue-400'
+                    }`}
+                  >
+                    {l.sheetsPerPage}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 ml-auto">
+                <button
+                  onClick={() => setSelected(new Set())}
+                  className="text-xs text-blue-500 hover:text-blue-700 underline"
+                >
+                  Clear
+                </button>
+                <Button
+                  size="sm"
+                  onClick={handlePrintSelected}
+                  disabled={downloading}
+                  className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5 text-xs h-8"
+                >
+                  <Download className="w-3 h-3" />
+                  {downloading ? 'Downloading…' : `Download ${selected.size} PDF${selected.size > 1 ? 's' : ''}`}
+                </Button>
+              </div>
+            </div>
+          )}
+
           {filtered.length === 0 ? (
             <div className="text-center py-8 text-slate-400 text-sm">No sheets found</div>
           ) : (
             <>
+              {/* Column header */}
               <div className="flex items-center gap-3 px-1 pb-1 text-xs text-slate-400 font-medium border-b border-slate-100">
+                <button onClick={togglePageAll} className="w-5 shrink-0 flex items-center">
+                  {allPageSelected
+                    ? <CheckSquare className="w-4 h-4 text-blue-600" />
+                    : <Square className="w-4 h-4 text-slate-300" />}
+                </button>
                 <span className="w-24 shrink-0">Sheet ID</span>
                 <span className="w-20 shrink-0">Status</span>
                 <span className="flex-1">Buyer</span>
                 <span className="w-28 text-right shrink-0">Actions</span>
               </div>
+
               <div className="divide-y divide-slate-50">
                 {pageItems.map(sheet => {
-                  const isSold = sheet.status === 'sold';
+                  const isSold    = sheet.status === 'sold';
+                  const isChecked = selected.has(sheet.id);
                   return (
-                    <div key={sheet.id} className="flex items-center gap-3 py-2 px-1 rounded hover:bg-slate-50 transition-colors">
+                    <div
+                      key={sheet.id}
+                      className={`flex items-center gap-3 py-2 px-1 rounded transition-colors cursor-default ${isChecked ? 'bg-blue-50' : 'hover:bg-slate-50'}`}
+                    >
+                      <button onClick={() => toggleSheet(sheet.id)} className="w-5 shrink-0 flex items-center">
+                        {isChecked
+                          ? <CheckSquare className="w-4 h-4 text-blue-600" />
+                          : <Square className="w-4 h-4 text-slate-300 hover:text-slate-400" />}
+                      </button>
                       <span className="font-mono text-xs text-slate-700 w-24 shrink-0">{sheet.id}</span>
                       <span className={`w-20 shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full text-center ${isSold ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
                         {isSold ? 'Sold' : 'Available'}
@@ -311,6 +310,7 @@ function GameGroupCard({
                   );
                 })}
               </div>
+
               {totalPages > 1 && (
                 <div className="flex items-center justify-between pt-2 border-t border-slate-100">
                   <span className="text-xs text-slate-400">
