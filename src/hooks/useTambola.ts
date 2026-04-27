@@ -483,14 +483,16 @@ export function useTambola() {
     const game: ScheduledGame = { ...input, id: `SCHED-${Date.now()}`, estimatedPrizePool };
     setScheduledGames(prev => [...prev, game]);
     setSheets(prev => prev.map(s => input.sheetIds.includes(s.id) ? { ...s, scheduledGameId: game.id } : s));
-    await supabase.from('scheduled_games').insert({
+    const { error } = await supabase.from('scheduled_games').insert({
       id: game.id, name: game.name, scheduled_at: game.scheduledAt,
       ticket_price: game.ticketPrice, sheet_ids: game.sheetIds,
       prizes: game.prizes, has_jackpot: game.hasJackpot, jackpot_amount: game.jackpotAmount,
       estimated_prize_pool: estimatedPrizePool, background_image: game.backgroundImage ?? null,
     });
+    if (error) console.error('[scheduleGame] Supabase error:', error);
     if (input.sheetIds.length > 0) {
-      await supabase.from('sheets').update({ game_id: game.id }).in('id', input.sheetIds);
+      const { error: e2 } = await supabase.from('sheets').update({ game_id: game.id }).in('id', input.sheetIds);
+      if (e2) console.error('[scheduleGame] sheets update error:', e2);
     }
     return game;
   }, []);
