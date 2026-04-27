@@ -48,12 +48,10 @@ export function Dashboard({ tambola }: DashboardProps) {
     confirmOrder, rejectOrder, createGame, linkScheduledGame, gameHistory,
   } = tambola;
 
-  const completedSessionIds = useMemo(() => new Set(gameHistory.map(g => g.id)), [gameHistory]);
-
-  // Active (not ended) scheduled games
+  // Active = no sessionId yet, OR sessionId is the currently running game
   const activeScheduledGames = useMemo(
-    () => scheduledGames.filter(g => !(g.sessionId && completedSessionIds.has(g.sessionId))),
-    [scheduledGames, completedSessionIds],
+    () => scheduledGames.filter(g => !g.sessionId || g.sessionId === currentGame?.id),
+    [scheduledGames, currentGame],
   );
 
   // ── Focused game ────────────────────────────────────────────────────────────

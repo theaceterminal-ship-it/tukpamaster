@@ -494,11 +494,12 @@ function AgentDashboard({ agent, onLogout }: { agent: Agent; onLogout: () => voi
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewId,  setPreviewId]  = useState('');
 
-  // All sheets assigned to this agent, excluding ones from completed games
-  const completedGameIds = new Set(tambola.gameHistory.map(g => g.id));
-  const endedScheduledIds = new Set(
-    tambola.scheduledGames.filter(g => g.sessionId && completedGameIds.has(g.sessionId)).map(g => g.id),
-  );
+  // Exclude sheets from played games (sessionId set but not the current live game)
+  const endedScheduledIds = useMemo(() => new Set(
+    tambola.scheduledGames
+      .filter(g => g.sessionId && g.sessionId !== tambola.currentGame?.id)
+      .map(g => g.id),
+  ), [tambola.scheduledGames, tambola.currentGame]);
 
   const mySheets = useMemo(
     () => tambola.sheets.filter(s =>

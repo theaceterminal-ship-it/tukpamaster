@@ -206,10 +206,11 @@ export function AgentNetwork({ tambola }: AgentNetworkProps) {
     ? Math.max(...tambola.sheets.map(s => parseInt(s.id.replace('SHEET-',''),10)))
     : 0;
 
-  // Exclude sheets from ended games
-  const completedSessionIds = new Set(tambola.gameHistory.map(g => g.id));
-  const endedScheduledIds   = new Set(
-    tambola.scheduledGames.filter(g => g.sessionId && completedSessionIds.has(g.sessionId)).map(g => g.id),
+  // Exclude sheets from played games (sessionId set but not the current live game)
+  const endedScheduledIds = new Set(
+    tambola.scheduledGames
+      .filter(g => g.sessionId && g.sessionId !== tambola.currentGame?.id)
+      .map(g => g.id),
   );
   const activeSheets = tambola.sheets.filter(
     s => !(s.scheduledGameId && endedScheduledIds.has(s.scheduledGameId)),

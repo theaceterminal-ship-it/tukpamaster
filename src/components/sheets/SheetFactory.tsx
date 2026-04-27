@@ -238,11 +238,11 @@ export function SheetFactory({ tambola }: SheetFactoryProps) {
 
   // ── Derived ───────────────────────────────────────────────────────────────
 
-  // Only show games that haven't ended
-  const activeScheduledGames = useMemo(() => {
-    const completedIds = new Set(tambola.gameHistory.map(g => g.id));
-    return tambola.scheduledGames.filter(g => !(g.sessionId && completedIds.has(g.sessionId)));
-  }, [tambola.scheduledGames, tambola.gameHistory]);
+  // Active = no sessionId yet, OR sessionId is the currently running game
+  const activeScheduledGames = useMemo(
+    () => tambola.scheduledGames.filter(g => !g.sessionId || g.sessionId === tambola.currentGame?.id),
+    [tambola.scheduledGames, tambola.currentGame],
+  );
 
   const selectedGame = activeScheduledGames.find(g => g.id === selectedGameId);
 

@@ -511,10 +511,11 @@ export function Marketplace() {
   const [pickerGame, setPickerGame] = useState<ScheduledGame | null>(null);
   const [detailGame, setDetailGame] = useState<ScheduledGame | null>(null);
 
-  const endedScheduledIds = useMemo(() => {
-    const completedIds = new Set(gameHistory.map(g => g.id));
-    return new Set(scheduledGames.filter(g => g.sessionId && completedIds.has(g.sessionId)).map(g => g.id));
-  }, [gameHistory, scheduledGames]);
+  const endedScheduledIds = useMemo(() => new Set(
+    scheduledGames
+      .filter(g => g.sessionId && g.sessionId !== currentGame?.id)
+      .map(g => g.id),
+  ), [scheduledGames, currentGame]);
 
   const availableSheets = useMemo(() =>
     sheets.filter(s => s.status === 'available' && !(s.scheduledGameId && endedScheduledIds.has(s.scheduledGameId))),
