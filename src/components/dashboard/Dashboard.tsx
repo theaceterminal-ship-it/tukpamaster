@@ -48,11 +48,13 @@ export function Dashboard({ tambola }: DashboardProps) {
     confirmOrder, rejectOrder, createGame, linkScheduledGame, gameHistory,
   } = tambola;
 
+  const completedSessionIds = useMemo(() => new Set(gameHistory.map(g => g.id)), [gameHistory]);
+
   // Active (not ended) scheduled games
-  const activeScheduledGames = useMemo(() => {
-    const completedIds = new Set(gameHistory.map(g => g.id));
-    return scheduledGames.filter(g => !(g.sessionId && completedIds.has(g.sessionId)));
-  }, [scheduledGames, gameHistory]);
+  const activeScheduledGames = useMemo(
+    () => scheduledGames.filter(g => !(g.sessionId && completedSessionIds.has(g.sessionId))),
+    [scheduledGames, completedSessionIds],
+  );
 
   // ── Focused game ────────────────────────────────────────────────────────────
   const focusedGame = useMemo(() => {
@@ -130,27 +132,159 @@ export function Dashboard({ tambola }: DashboardProps) {
     setCurrentPage('live-game');
   };
 
-  // ── No game ─────────────────────────────────────────────────────────────────
+  // ── No active game state ─────────────────────────────────────────────────────
   if (!focusedGame) {
+    const sortedScheduled = [...scheduledGames].sort(
+      (a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime(),
+    );
     return (
       <div className="space-y-4 w-full">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-slate-800">Dashboard</h2>
-            <p className="text-slate-500 text-sm mt-0.5">Operator overview for today's game.</p>
+            <p className="text-slate-500 text-sm mt-0.5">Operator overview.</p>
           </div>
           <Button onClick={() => window.open('/marketplace', '_blank')} variant="outline" className="gap-2 font-semibold">
             <ExternalLink className="w-4 h-4" /> Marketplace
           </Button>
         </div>
-        <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
-          <div className="rounded-2xl p-10 text-center max-w-sm w-full" style={CARD}>
-            <Calendar className="w-10 h-10 mx-auto mb-4 text-gray-300" />
-            <p className="text-lg font-black text-gray-900">No game scheduled</p>
-            <p className="text-sm text-gray-400 mt-1 mb-5">Schedule a game to see it here as your dashboard hub</p>
-            <Button onClick={() => setCurrentPage('live-game')} className="w-full font-bold text-white" style={{ backgroundColor: '#0ea5e9' }}>
-              Schedule a Game
-            </Button>
+
+        <div className="grid grid-cols-3 gap-4 w-full">
+          {/* Left 2 cols: hero + games list */}
+          <div className="col-span-2 space-y-4">
+            {/* Hero */}
+            <div
+              className="relative w-full overflow-hidden rounded-2xl px-8 py-10 flex flex-col items-center justify-center text-center gap-4"
+              style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #0f172a 100%)' }}
+            >
+              <div className="absolute -top-16 -left-16 w-64 h-64 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-16 -right-16 w-64 h-64 rounded-full bg-purple-500/10 blur-3xl pointer-events-none" />
+              <Calendar className="w-10 h-10 text-slate-500" />
+              <div>
+                <p className="text-2xl font-black text-white">No active game</p>
+                <p className="text-sm text-slate-400 mt-1">Schedule a new game to make it the dashboard hub</p>
+              </div>
+              <Button
+                onClick={() => setCurrentPage('live-game')}
+                className="gap-2 font-bold text-white px-6"
+                style={{ backgroundColor: '#0ea5e9' }}
+              >
+                <Radio className="w-4 h-4" /> Schedule a Game
+              </Button>
+            </div>
+
+            {/* All scheduled games */}
+            {sortedScheduled.length > 0 && (
+              <div className="rounded-2xl p-5" style={CARD}>
+                <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">All Scheduled Games</p>
+                <div className="space-y-2">
+                  {sortedScheduled.map(g => {
+                    const ended = !!(g.sessionId && completedSessionIds.has(g.sessionId));
+                    return (
+                      <div key={g.id} className="flex items-center justify-between px-4 py-3 rounded-xl bg-gray-50">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                            style={{ backgroundColor: ended ? '#f3f4f6' : 'rgba(14,165,233,0.12)' }}
+                          >
+                            <Calendar className="w-4 h-4" style={{ color: ended ? '#9ca3af' : '#0ea5e9' }} />
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">{g.name}</p>
+                            <p className="text-xs text-gray-400">
+                              {new Date(g.scheduledAt).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+                              {' '}at{' '}
+                              {new Date(g.scheduledAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                              {' · '}₹{g.ticketPrice}/sheet · {g.sheetIds.length} sheets
+                            </p>
+                          </div>
+                        </div>
+                        <span
+                          className="text-xs font-bold px-2.5 py-1 rounded-full"
+                          style={ended
+                            ? { backgroundColor: '#f3f4f6', color: '#6b7280' }
+                            : { backgroundColor: 'rgba(14,165,233,0.12)', color: '#0ea5e9' }}
+                        >
+                          {ended ? 'Ended' : 'Upcoming'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right col: pending + collection */}
+          <div className="flex flex-col gap-4">
+            <div className="rounded-2xl p-5 flex-1" style={CARD}>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Pending Orders</p>
+                {allPending.length > 0 && (
+                  <span className="min-w-[20px] h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center px-1.5">
+                    {allPending.length}
+                  </span>
+                )}
+              </div>
+              {allPending.length === 0 ? (
+                <div className="py-3 flex items-center gap-2">
+                  <CheckCircle2 className="w-6 h-6 text-emerald-400 shrink-0" />
+                  <p className="text-sm text-gray-400">All orders cleared</p>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    {allPending.slice(0, 4).map(order => (
+                      <div key={order.id} className="flex items-center gap-2 p-2 rounded-xl bg-gray-50">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-gray-900 truncate">{order.playerName}</p>
+                          <p className="text-[11px] text-gray-400">
+                            {order.sheetIds.length} sheet{order.sheetIds.length !== 1 ? 's' : ''} · ₹{order.amount} · {timeAgo(order.createdAt)}
+                          </p>
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          <button onClick={() => confirmOrder(order.id)} className="w-6 h-6 rounded-lg bg-emerald-100 flex items-center justify-center hover:bg-emerald-200 transition-colors">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          </button>
+                          <button onClick={() => rejectOrder(order.id)} className="w-6 h-6 rounded-lg bg-red-100 flex items-center justify-center hover:bg-red-200 transition-colors">
+                            <XCircle className="w-3.5 h-3.5 text-red-500" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {allPending.length > 4 && (
+                    <button
+                      onClick={() => setCurrentPage('pending-payments')}
+                      className="w-full mt-2 text-xs font-semibold flex items-center justify-center gap-1 py-1.5 rounded-xl hover:bg-gray-50 transition-colors"
+                      style={{ color: '#0ea5e9' }}
+                    >
+                      +{allPending.length - 4} more <ArrowRight className="w-3 h-3" />
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="rounded-2xl p-5" style={CARD}>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Today's Collection</p>
+                <Wallet className="w-4 h-4 text-gray-300" />
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-[11px] text-gray-400 mb-0.5">Confirmed</p>
+                  <p className="text-2xl font-black text-gray-900 tabular-nums">₹{confirmedAmount.toLocaleString()}</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">{todayConfirmed.length} order{todayConfirmed.length !== 1 ? 's' : ''}</p>
+                </div>
+                <div className="w-px self-stretch bg-gray-100" />
+                <div>
+                  <p className="text-[11px] text-gray-400 mb-0.5">Pending</p>
+                  <p className="text-2xl font-black tabular-nums" style={{ color: '#0ea5e9' }}>+₹{pendingAmount.toLocaleString()}</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">{allPending.length} awaiting</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
