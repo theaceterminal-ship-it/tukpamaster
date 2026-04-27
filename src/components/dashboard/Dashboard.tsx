@@ -45,26 +45,32 @@ export function Dashboard({ tambola }: DashboardProps) {
   const {
     scheduledGames, sheets, orders, agents,
     currentGame, setCurrentPage,
-    confirmOrder, rejectOrder, createGame, linkScheduledGame,
+    confirmOrder, rejectOrder, createGame, linkScheduledGame, gameHistory,
   } = tambola;
+
+  // Active (not ended) scheduled games
+  const activeScheduledGames = useMemo(() => {
+    const completedIds = new Set(gameHistory.map(g => g.id));
+    return scheduledGames.filter(g => !(g.sessionId && completedIds.has(g.sessionId)));
+  }, [scheduledGames, gameHistory]);
 
   // ── Focused game ────────────────────────────────────────────────────────────
   const focusedGame = useMemo(() => {
-    if (!scheduledGames.length) return null;
+    if (!activeScheduledGames.length) return null;
     if (currentGame?.status === 'active') {
-      const linked = scheduledGames.find(g => g.sessionId === currentGame.id);
+      const linked = activeScheduledGames.find(g => g.sessionId === currentGame.id);
       if (linked) return linked;
     }
     const now = new Date();
     const todayStr = now.toDateString();
-    const today = scheduledGames.find(g => new Date(g.scheduledAt).toDateString() === todayStr);
+    const today = activeScheduledGames.find(g => new Date(g.scheduledAt).toDateString() === todayStr);
     if (today) return today;
-    const upcoming = [...scheduledGames]
+    const upcoming = [...activeScheduledGames]
       .filter(g => new Date(g.scheduledAt) > now)
       .sort((a, b) => +new Date(a.scheduledAt) - +new Date(b.scheduledAt));
     if (upcoming.length) return upcoming[0];
-    return [...scheduledGames].sort((a, b) => +new Date(b.scheduledAt) - +new Date(a.scheduledAt))[0];
-  }, [scheduledGames, currentGame]);
+    return [...activeScheduledGames].sort((a, b) => +new Date(b.scheduledAt) - +new Date(a.scheduledAt))[0] ?? null;
+  }, [activeScheduledGames, currentGame]);
 
   const isLive = !!(currentGame && focusedGame?.sessionId === currentGame.id && currentGame.status === 'active');
 

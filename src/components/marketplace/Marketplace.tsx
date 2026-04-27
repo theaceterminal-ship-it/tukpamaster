@@ -12,7 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { buildBulkPDF, DEFAULT_LAYOUT } from '@/lib/pdfRenderer';
+import { buildSheetPDF, DEFAULT_LAYOUT } from '@/lib/pdfRenderer';
 import type { Sheet } from '@/types';
 
 type Step = 'home' | 'game-detail' | 'picker' | 'details' | 'pay' | 'submitted' | 'orders';
@@ -502,8 +502,9 @@ export function Marketplace() {
   const [utr, setUtr]       = useState('');
   const [order, setOrder]   = useState<Order | null>(null);
   const [copied, setCopied] = useState(false);
-  const [lookupPhone, setLookupPhone] = useState('');
-  const [hasSearched, setHasSearched] = useState(false);
+  const [lookupPhone,  setLookupPhone]  = useState('');
+  const [hasSearched,  setHasSearched]  = useState(false);
+  const [lookupGameId, setLookupGameId] = useState('');
 
   const { currentGame, scheduledGames, sheets, sheetPrice, upiSettings, gameHistory, loading } = tambola;
 
@@ -590,9 +591,14 @@ export function Marketplace() {
   const downloadOrderPDF = (o: Order) => {
     const orderSheets = tambola.sheets.filter(s => o.sheetIds.includes(s.id));
     if (orderSheets.length === 0) return;
-    const doc = buildBulkPDF(orderSheets, { ...DEFAULT_LAYOUT, eventName: 'TukpaMaster' });
-    doc.save(`tickets-${o.id}.pdf`);
+    // Download each sheet as its own PDF (one file per sheet)
+    orderSheets.forEach((sheet, i) => {
+      setTimeout(() => {
+        buildSheetPDF(sheet, { ...DEFAULT_LAYOUT, eventName: 'TukpaMaster' }).save(`ticket-${sheet.id}.pdf`);
+      }, i * 300);
+    });
   };
+
 
   const openOrders = (prefillPhone?: string) => {
     if (prefillPhone) setLookupPhone(prefillPhone);
@@ -600,12 +606,25 @@ export function Marketplace() {
     setStep('orders');
   };
 
-  const myOrders = useMemo(() =>
-    hasSearched && lookupPhone.trim()
-      ? tambola.orders.filter(o => o.phone.replace(/\D/g, '') === lookupPhone.trim().replace(/\D/g, ''))
-      : [],
-    [hasSearched, lookupPhone, tambola.orders]
+  const myOrders = useMemo(() => {
+    if (!hasSearched || !lookupPhone.trim() || !lookupGameId) return [];
+    return tambola.orders.filter(o =>
+      o.phone.replace(/\D/g, '') === lookupPhone.trim().replace(/\D/g, '') &&
+      o.sheetIds.some(sid => {
+        const sheet = tambola.sheets.find(s => s.id === sid);
+        return sheet?.scheduledGameId === lookupGameId;
+      })
+    );
+  }, [hasSearched, lookupPhone, lookupGameId, tambola.orders, tambola.sheets]);
+
+  const lookupGame = useMemo(
+    () => tambola.scheduledGames.find(g => g.id === lookupGameId) ?? null,
+    [lookupGameId, tambola.scheduledGames]
   );
+  const lookupGameEnded = useMemo(() => {
+    if (!lookupGame?.sessionId) return false;
+    return tambola.gameHistory.some(h => h.id === lookupGame.sessionId);
+  }, [lookupGame, tambola.gameHistory]);
 
   // ─── Shared header ──────────────────────────────────────────────────────────
   const Header = ({ back, title }: { back?: () => void; title?: string }) => (
@@ -1292,7 +1311,7 @@ export function Marketplace() {
               onClick={() => downloadOrderPDF(liveOrder)}
               className="w-full flex items-center justify-center gap-3 bg-emerald-500 hover:bg-emerald-600 text-white font-black py-4 rounded-2xl text-lg transition-colors shadow-lg shadow-emerald-500/25"
             >
-              <Download className="w-6 h-6" /> Download Ticket PDF
+              <Download className="w-6 h-6" /> Download {liveOrder.sheetIds.length} Ticket PDF{liveOrder.sheetIds.length > 1 ? 's' : ''}
             </button>
           )}
 
@@ -1349,40 +1368,74 @@ export function Marketplace() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <Header back={() => setStep('home')} title="My Orders" />
+      <Header back={() => setStep('home')} title="My Tickets" />
       <div className="max-w-xl mx-auto px-4 sm:px-6 py-8 space-y-6">
         <div className="text-center space-y-1">
           <div className="w-14 h-14 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-3">
             <ClipboardList className="w-7 h-7 text-amber-400" />
           </div>
-          <h2 className="text-2xl font-black text-slate-800">Check My Orders</h2>
-          <p className="text-slate-500 text-sm">Enter the phone number you used when ordering.</p>
+          <h2 className="text-2xl font-black text-slate-800">Find My Tickets</h2>
+          <p className="text-slate-500 text-sm">Select the game you bought tickets for, then enter your phone.</p>
         </div>
 
         <Card>
           <CardContent className="p-5 space-y-4">
+            {/* Step 1: Select game */}
             <div>
-              <Label htmlFor="lookup-phone" className="flex items-center gap-1.5 mb-1">
-                <Phone className="w-3.5 h-3.5 text-slate-400" /> Phone Number
+              <Label className="flex items-center gap-1.5 mb-2 text-sm font-semibold text-slate-700">
+                <Ticket className="w-3.5 h-3.5" /> 1. Select Game
+              </Label>
+              <select
+                value={lookupGameId}
+                onChange={e => { setLookupGameId(e.target.value); setHasSearched(false); }}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
+              >
+                <option value="">— Choose a game —</option>
+                {[...tambola.scheduledGames]
+                  .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())
+                  .map(g => {
+                    const ended = g.sessionId && tambola.gameHistory.some(h => h.id === g.sessionId);
+                    return (
+                      <option key={g.id} value={g.id}>
+                        {g.name} · {new Date(g.scheduledAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}{ended ? ' (Ended)' : ''}
+                      </option>
+                    );
+                  })}
+              </select>
+            </div>
+
+            {/* Step 2: Phone number */}
+            <div>
+              <Label htmlFor="lookup-phone" className="flex items-center gap-1.5 mb-2 text-sm font-semibold text-slate-700">
+                <Phone className="w-3.5 h-3.5 text-slate-400" /> 2. Your Phone Number
               </Label>
               <div className="flex gap-2">
                 <Input
                   id="lookup-phone"
                   value={lookupPhone}
                   onChange={e => { setLookupPhone(e.target.value); setHasSearched(false); }}
-                  onKeyDown={e => e.key === 'Enter' && lookupPhone.trim() && setHasSearched(true)}
+                  onKeyDown={e => e.key === 'Enter' && lookupPhone.trim() && lookupGameId && setHasSearched(true)}
                   placeholder="+91 98765 43210"
                   className="flex-1"
+                  disabled={!lookupGameId}
                 />
                 <Button
                   onClick={() => setHasSearched(true)}
-                  disabled={!lookupPhone.trim()}
+                  disabled={!lookupPhone.trim() || !lookupGameId}
                   className="bg-slate-800 hover:bg-slate-700 text-white font-semibold px-5"
                 >
                   Find
                 </Button>
               </div>
             </div>
+
+            {/* Ended game warning */}
+            {lookupGameEnded && (
+              <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 text-sm text-amber-800">
+                <span className="shrink-0 mt-0.5">⚠️</span>
+                <span>This game has ended. You can view your order history but <strong>downloads are no longer available</strong> for this game.</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -1426,12 +1479,16 @@ export function Marketplace() {
                         )}
                       </div>
                       {confirmed ? (
-                        <button
-                          onClick={() => downloadOrderPDF(o)}
-                          className="w-full flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-sm transition-colors"
-                        >
-                          <Download className="w-4 h-4" /> Download Ticket PDF
-                        </button>
+                        lookupGameEnded ? (
+                          <p className="text-xs text-amber-600 text-center font-medium">Game ended — download not available.</p>
+                        ) : (
+                          <button
+                            onClick={() => downloadOrderPDF(o)}
+                            className="w-full flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-sm transition-colors"
+                          >
+                            <Download className="w-4 h-4" /> Download {o.sheetIds.length} PDF{o.sheetIds.length > 1 ? 's' : ''}
+                          </button>
+                        )
                       ) : rejected ? (
                         <p className="text-xs text-red-500 text-center">Order rejected — contact the operator.</p>
                       ) : (

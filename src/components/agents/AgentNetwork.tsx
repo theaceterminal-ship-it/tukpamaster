@@ -214,14 +214,30 @@ export function AgentNetwork({ tambola }: AgentNetworkProps) {
   };
 
   const agentStats = (agent: Agent) => {
-    const assigned = tambola.sheets.filter(s => s.assignedTo === agent.id);
+    const assigned  = tambola.sheets.filter(s => s.assignedTo === agent.id);
     const sold      = assigned.filter(s => s.status === 'sold').length;
     const available = assigned.filter(s => s.status !== 'sold').length;
-    const revenue   = assigned
+    const collected = assigned
       .filter(s => s.status === 'sold')
       .reduce((sum, s) => sum + (s.price ?? tambola.sheetPrice), 0);
-    const commission = Math.round(revenue * agent.commission / 100);
-    return { total: assigned.length, sold, available, revenue, commission };
+
+    // Per-game breakdown
+    const byGame: Record<string, { name: string; sold: number; remaining: number; collected: number }> = {};
+    assigned.forEach(s => {
+      const gid  = s.scheduledGameId ?? '__none__';
+      if (!byGame[gid]) {
+        const game = tambola.scheduledGames.find(g => g.id === gid);
+        byGame[gid] = { name: game?.name ?? 'General', sold: 0, remaining: 0, collected: 0 };
+      }
+      if (s.status === 'sold') {
+        byGame[gid].sold++;
+        byGame[gid].collected += s.price ?? tambola.sheetPrice;
+      } else {
+        byGame[gid].remaining++;
+      }
+    });
+
+    return { total: assigned.length, sold, available, collected, byGame };
   };
 
   return (
@@ -306,10 +322,10 @@ export function AgentNetwork({ tambola }: AgentNetworkProps) {
                 {/* Stats bar */}
                 <div className="grid grid-cols-4 gap-2 text-center">
                   {[
-                    { label: 'Assigned',   value: stats.total,      color: 'text-slate-700' },
-                    { label: 'Available',  value: stats.available,  color: 'text-blue-600' },
-                    { label: 'Sold',       value: stats.sold,       color: 'text-emerald-600' },
-                    { label: 'Commission', value: `₹${stats.commission}`, color: 'text-amber-600' },
+                    { label: 'Assigned',  value: stats.total,              color: 'text-slate-700' },
+                    { label: 'Available', value: stats.available,          color: 'text-blue-600' },
+                    { label: 'Sold',      value: stats.sold,               color: 'text-emerald-600' },
+                    { label: 'Collected', value: `₹${stats.collected.toLocaleString()}`, color: 'text-amber-600' },
                   ].map(s => (
                     <div key={s.label} className="bg-slate-50 rounded-lg py-1.5 px-2">
                       <p className={`text-sm font-bold ${s.color}`}>{s.value}</p>
@@ -317,6 +333,21 @@ export function AgentNetwork({ tambola }: AgentNetworkProps) {
                     </div>
                   ))}
                 </div>
+
+                {/* Per-game breakdown */}
+                {Object.entries(stats.byGame).length > 0 && (
+                  <div className="mt-3 space-y-1.5 border-t border-slate-100 pt-3">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Per Game</p>
+                    {Object.entries(stats.byGame).map(([gid, g]) => (
+                      <div key={gid} className="flex items-center gap-2 text-xs bg-slate-50 rounded-lg px-3 py-1.5">
+                        <span className="flex-1 font-medium text-slate-700 truncate">{g.name}</span>
+                        <span className="text-emerald-600 font-semibold">{g.sold} sold</span>
+                        <span className="text-blue-500">{g.remaining} left</span>
+                        <span className="text-amber-600 font-semibold">₹{g.collected.toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Agent portal link */}
                 <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">

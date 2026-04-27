@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Ticket, Users, UserCircle,
-  Radio, ShieldCheck, History,
+  Radio, History,
   ClipboardList, Dice5,
 } from 'lucide-react';
 import type { AppPage } from '@/types';
@@ -22,7 +22,6 @@ const TOP_NAV: { page: AppPage; label: string; icon: React.ElementType }[] = [
 const BOTTOM_NAV: { page: AppPage; label: string; icon: React.ElementType }[] = [
   { page: 'pending-payments', label: 'Payments',  icon: ClipboardList },
   { page: 'live-game',        label: 'Live Game', icon: Radio },
-  { page: 'verifier',         label: 'Verifier',  icon: ShieldCheck },
   { page: 'history',          label: 'History',   icon: History },
 ];
 

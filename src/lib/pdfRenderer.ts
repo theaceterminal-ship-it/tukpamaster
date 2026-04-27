@@ -104,9 +104,15 @@ export function renderCompactSheet(doc: jsPDF, sheet: Sheet, config: LayoutConfi
   const sheetNum = parseInt(sheet.id.replace('SHEET-', ''), 10) || 1;
   const firstTicketNum = (sheetNum - 1) * 6 + 1;
 
-  const sbX = sbW / 2;
-  doc.setFontSize(18); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 0, 0);
-  doc.text(`Sheet No. ${sheetNum}`, sbX, pageH / 2, { angle: 90, align: 'center' });
+  // Sidebar strip with sheet number
+  doc.setFillColor(243, 244, 246);
+  doc.rect(0, 0, sbW, pageH, 'F');
+  doc.setFontSize(14); doc.setFont('helvetica', 'bold'); doc.setTextColor(80, 80, 80);
+  doc.text(`Sheet No. ${sheetNum}`, sbW / 2, pageH / 2, { angle: 90, align: 'center' });
+
+  // Sheet number footer — always visible, horizontal
+  doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(0, 0, 0);
+  doc.text(`Sheet No. ${sheetNum}`, pageW / 2, pageH - 4, { align: 'center' });
 
   let yPos = startY;
   for (let i = 0; i < sheet.tickets.length; i++) {
@@ -238,14 +244,19 @@ function renderSheetScaled(
   const gridW  = 9 * cW;
   const gridH  = 3 * rH;
   const gL     = ox + sbW;          // left-align grid against sidebar
+  const headerH = 7 * scale;        // header row for sheet number
   const blockH = 48 * scale;
-  let   yPos   = oy;                 // no top padding — content fills cell from oy
+  let   yPos   = oy + headerH;
 
-  // Vertical "Sheet No." label in sidebar
-  doc.setFontSize(Math.max(4, 14 * scale));
+  // Sidebar background
+  doc.setFillColor(243, 244, 246);
+  doc.rect(ox, oy, sbW, headerH + 6 * blockH, 'F');
+
+  // Sheet number — horizontal text in sidebar header area
+  doc.setFontSize(Math.max(5, 11 * scale));
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 0, 0);
-  doc.text(`#${sheetNum}`, ox + sbW / 2, oy + (288 * scale) / 2, { angle: 90, align: 'center' });
+  doc.setTextColor(60, 60, 60);
+  doc.text(`#${sheetNum}`, ox + sbW / 2, oy + headerH * 0.7, { align: 'center' });
 
   for (let i = 0; i < sheet.tickets.length; i++) {
     const ticket     = sheet.tickets[i];
@@ -302,10 +313,10 @@ export function buildMultiUpPDF(sheets: Sheet[], sheetsPerPage: number, config: 
   const cellW  = (pageW - margin * 2 - gap * (cols - 1)) / cols;
   const cellH  = (pageH - margin * 2 - gap * (rows - 1)) / rows;
 
-  // Natural content bounds: compact = sidebar(18)+grid(135) × 6×48mm; classic = 186 × 270mm
+  // Natural content bounds: compact = sidebar(18)+grid(135) × 7mm header+6×48mm; classic = 186 × 270mm
   const isClassic = config.template === 'classic';
   const NATURAL_W = isClassic ? 186 : 153;
-  const NATURAL_H = isClassic ? 270 : 288;
+  const NATURAL_H = isClassic ? 270 : 295;
   const scale     = Math.min(cellW / NATURAL_W, cellH / NATURAL_H);
   const scaledW   = NATURAL_W * scale;
   const scaledH   = NATURAL_H * scale;

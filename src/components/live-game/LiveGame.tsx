@@ -527,30 +527,6 @@ export function LiveGame({ tambola }: LiveGameProps) {
           </CardContent>
         </Card>
 
-        {/* Previously launched */}
-        {scheduledGames.filter(g => g.sessionId).length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Clock className="w-4 h-4 text-slate-400" /> Previously Launched
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {scheduledGames.filter(g => g.sessionId).map(g => (
-                  <div key={g.id} className="flex items-center justify-between py-2 px-3 border border-slate-100 rounded-lg">
-                    <div>
-                      <p className="text-sm font-medium text-slate-600">{g.name}</p>
-                      <p className="text-xs text-slate-400">{new Date(g.scheduledAt).toLocaleString()} · Launched</p>
-                    </div>
-                    <button onClick={() => removeScheduledGame(g.id)} className="text-slate-300 hover:text-red-400 text-xs ml-3">Remove</button>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         {tambola.gameHistory.length > 0 && (
           <Card>
             <CardHeader><CardTitle>Recent Games</CardTitle></CardHeader>

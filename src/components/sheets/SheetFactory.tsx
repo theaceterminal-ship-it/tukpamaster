@@ -238,7 +238,13 @@ export function SheetFactory({ tambola }: SheetFactoryProps) {
 
   // ── Derived ───────────────────────────────────────────────────────────────
 
-  const selectedGame = tambola.scheduledGames.find(g => g.id === selectedGameId);
+  // Only show games that haven't ended
+  const activeScheduledGames = useMemo(() => {
+    const completedIds = new Set(tambola.gameHistory.map(g => g.id));
+    return tambola.scheduledGames.filter(g => !(g.sessionId && completedIds.has(g.sessionId)));
+  }, [tambola.scheduledGames, tambola.gameHistory]);
+
+  const selectedGame = activeScheduledGames.find(g => g.id === selectedGameId);
 
   // Effective event name for PDF output
   const effectiveEventName = printGameName && selectedGame
@@ -400,7 +406,7 @@ export function SheetFactory({ tambola }: SheetFactoryProps) {
               <Label className="text-xs text-slate-500 mb-2 block flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5" /> Select Game
               </Label>
-              {tambola.scheduledGames.length === 0 ? (
+              {activeScheduledGames.length === 0 ? (
                 <div className="flex items-center gap-3 py-3 px-4 border border-dashed border-slate-200 rounded-xl bg-slate-50 text-sm text-slate-500">
                   <Calendar className="w-4 h-4 text-slate-300 shrink-0" />
                   No scheduled games yet.
@@ -419,7 +425,7 @@ export function SheetFactory({ tambola }: SheetFactoryProps) {
                     className="w-full appearance-none border border-slate-200 rounded-xl px-4 py-2.5 pr-10 text-sm font-medium bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400 cursor-pointer"
                   >
                     <option value="">— Choose a game —</option>
-                    {[...tambola.scheduledGames]
+                    {[...activeScheduledGames]
                       .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
                       .map(g => (
                         <option key={g.id} value={g.id}>
@@ -460,7 +466,7 @@ export function SheetFactory({ tambola }: SheetFactoryProps) {
                     className="w-full appearance-none border border-slate-200 rounded-xl px-3 py-2 pr-8 text-sm font-medium bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400 cursor-pointer"
                   >
                     <option value="">— Choose a game —</option>
-                    {[...tambola.scheduledGames]
+                    {[...activeScheduledGames]
                       .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
                       .map(g => (
                         <option key={g.id} value={g.id}>
