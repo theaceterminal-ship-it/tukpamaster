@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { buildBulkPDF, DEFAULT_LAYOUT } from '@/lib/pdfRenderer';
 import type { Sheet } from '@/types';
 
-type Step = 'home' | 'picker' | 'details' | 'pay' | 'submitted' | 'orders';
+type Step = 'home' | 'game-detail' | 'picker' | 'details' | 'pay' | 'submitted' | 'orders';
 
 const PICKER_PAGE = 60;
 
@@ -508,26 +508,23 @@ export function Marketplace() {
   const { currentGame, scheduledGames, sheets, sheetPrice, upiSettings, gameHistory, loading } = tambola;
 
   const [pickerGame, setPickerGame] = useState<ScheduledGame | null>(null);
+  const [detailGame, setDetailGame] = useState<ScheduledGame | null>(null);
 
   const availableSheets = useMemo(() => sheets.filter(s => s.status === 'available'), [sheets]);
-  const todayStr = new Date().toDateString();
 
   const heroGame = (currentGame && (currentGame.status === 'active' || currentGame.status === 'setup'))
     ? currentGame : null;
 
-  const todayScheduled = useMemo(() =>
+  // All upcoming games sorted by time (nearest first)
+  const allUpcoming = useMemo(() =>
     scheduledGames
-      .filter(g => new Date(g.scheduledAt).toDateString() === todayStr)
+      .filter(g => !g.sessionId)
       .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()),
-    [scheduledGames, todayStr]
+    [scheduledGames]
   );
 
-  const upcoming = useMemo(() =>
-    scheduledGames
-      .filter(g => new Date(g.scheduledAt) > new Date() && new Date(g.scheduledAt).toDateString() !== todayStr)
-      .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()),
-    [scheduledGames, todayStr]
-  );
+  const nearestScheduled = allUpcoming[0] ?? null;
+  const upcoming = allUpcoming.slice(1);
 
   const totalPrizeEver = useMemo(() =>
     gameHistory.reduce((s, g) => s + g.totalPrizeDistributed, 0), [gameHistory]);
@@ -575,6 +572,11 @@ export function Marketplace() {
     navigator.clipboard.writeText(order.id);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const openDetail = (game: ScheduledGame) => {
+    setDetailGame(game);
+    setStep('game-detail');
   };
 
   const openPicker = (game?: ScheduledGame) => {
@@ -685,22 +687,22 @@ export function Marketplace() {
             onCTA={() => openPicker()}
           />
 
-        ) : todayScheduled.length > 0 ? (
+        ) : nearestScheduled ? (
           <TradeFairHero
-            name={todayScheduled[0].name}
-            scheduledAt={todayScheduled[0].scheduledAt}
-            prizePool={todayScheduled[0].estimatedPrizePool}
-            availableCount={availableSheets.filter(s => todayScheduled[0].sheetIds.includes(s.id)).length}
-            totalSheets={todayScheduled[0].sheetIds.length}
-            price={todayScheduled[0].ticketPrice}
-            hasJackpot={todayScheduled[0].hasJackpot}
-            jackpotAmount={todayScheduled[0].jackpotAmount}
-            jackpotThingName={todayScheduled[0].jackpotThingName}
-            jackpotThingPhoto={todayScheduled[0].jackpotThingPhoto}
-            prizes={todayScheduled[0].prizes}
-            backgroundImage={todayScheduled[0].backgroundImage}
+            name={nearestScheduled.name}
+            scheduledAt={nearestScheduled.scheduledAt}
+            prizePool={nearestScheduled.estimatedPrizePool}
+            availableCount={availableSheets.filter(s => nearestScheduled.sheetIds.includes(s.id)).length}
+            totalSheets={nearestScheduled.sheetIds.length}
+            price={nearestScheduled.ticketPrice}
+            hasJackpot={nearestScheduled.hasJackpot}
+            jackpotAmount={nearestScheduled.jackpotAmount}
+            jackpotThingName={nearestScheduled.jackpotThingName}
+            jackpotThingPhoto={nearestScheduled.jackpotThingPhoto}
+            prizes={nearestScheduled.prizes}
+            backgroundImage={nearestScheduled.backgroundImage}
             whatsappNumber={upiSettings.whatsappNumber}
-            onCTA={() => openPicker(todayScheduled[0])}
+            onCTA={() => openDetail(nearestScheduled)}
           />
 
         ) : (
@@ -733,7 +735,7 @@ export function Marketplace() {
                   </div>
                   {upcoming.length > 0 && (
                     <button
-                      onClick={() => openPicker(upcoming[0])}
+                      onClick={() => openDetail(upcoming[0])}
                       className="flex items-center gap-2 bg-amber-400 hover:bg-amber-300 text-slate-900 font-black px-6 py-3 rounded-2xl shadow-xl transition-colors"
                     >
                       Next: {upcoming[0].name} <ChevronRight className="w-4 h-4" />
@@ -797,7 +799,7 @@ export function Marketplace() {
               <span className="bg-sky-100 text-sky-600 text-xs font-semibold px-2 py-0.5 rounded-full">{upcoming.length}</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {upcoming.map(g => <UpcomingGameCard key={g.id} game={g} whatsapp={upiSettings.whatsappNumber} onPick={() => openPicker(g)} />)}
+              {upcoming.map(g => <UpcomingGameCard key={g.id} game={g} whatsapp={upiSettings.whatsappNumber} onPick={() => openDetail(g)} />)}
             </div>
           </div>
         )}
@@ -819,6 +821,149 @@ export function Marketplace() {
       )}
     </div>
   );
+
+  // ── GAME DETAIL ──────────────────────────────────────────────────────────────
+
+  if (step === 'game-detail' && detailGame) {
+    const g = detailGame;
+    const hasBg = !!g.backgroundImage;
+    const gAvailable = availableSheets.filter(s => g.sheetIds.includes(s.id)).length;
+
+    const PRIZE_ICONS: Record<string, string> = {
+      'early-five': '5️⃣', 'early-six': '6️⃣', 'early-seven': '7️⃣',
+      'top-line': '🔝', 'middle-line': '〰️', 'bottom-line': '⬇️',
+      'corners': '🔲', 'sheet-corner': '🏆', 'full-house': '🏠',
+      'second-full-house': '🥈', 'third-full-house': '🥉',
+    };
+
+    return (
+      <div className="min-h-screen bg-slate-100">
+        <Header back={() => setStep('home')} title={g.name} />
+
+        {/* Hero banner */}
+        <div
+          className="relative overflow-hidden"
+          style={hasBg
+            ? { backgroundImage: `url(${g.backgroundImage})`, backgroundSize: 'cover', backgroundPosition: 'center', minHeight: 200 }
+            : { background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #0f172a 100%)', minHeight: 200 }
+          }
+        >
+          {hasBg && <div className="absolute inset-0 bg-gradient-to-b from-black/50 to-black/80" />}
+          {!hasBg && <div className="absolute -top-10 -left-10 w-48 h-48 rounded-full bg-amber-500/20 blur-3xl pointer-events-none" />}
+          <div className="relative px-5 py-6 flex flex-col gap-2">
+            <LiveCountdownBadge iso={g.scheduledAt} />
+            <h1 className="text-3xl sm:text-5xl font-black text-white uppercase leading-tight mt-1"
+                style={{ textShadow: '2px 3px 0 rgba(0,0,0,0.4)' }}>{g.name}</h1>
+            <p className="text-white/60 text-sm font-semibold">
+              {new Date(g.scheduledAt).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              {' · '}
+              {new Date(g.scheduledAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+            </p>
+          </div>
+        </div>
+
+        <div className="px-4 sm:px-6 py-5 space-y-4 max-w-2xl mx-auto">
+
+          {/* Prize List */}
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
+              <p className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                <Trophy className="w-3.5 h-3.5 text-amber-500" /> Prize List
+              </p>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {g.prizes.map(p => (
+                <div key={p.type} className="flex items-center gap-3 px-5 py-3">
+                  <span className="text-xl w-7 shrink-0 text-center">{PRIZE_ICONS[p.type] ?? '🎯'}</span>
+                  <div className="flex-1">
+                    <p className="font-semibold text-slate-800 text-sm">{p.label}</p>
+                    {p.thingName && <p className="text-xs text-slate-500 mt-0.5">Prize: {p.thingName}</p>}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {p.thingPhoto && <img src={p.thingPhoto} alt={p.thingName} className="w-10 h-10 rounded-lg object-cover border border-slate-200" />}
+                    <div className="text-right">
+                      {p.thingName
+                        ? <p className="text-sm font-black text-emerald-600">{p.thingName}</p>
+                        : <p className="text-lg font-black text-slate-800">₹{p.amount.toLocaleString()}</p>
+                      }
+                      {p.thingName && p.amount > 0 && <p className="text-xs text-slate-400">+ ₹{p.amount.toLocaleString()}</p>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {g.hasJackpot && (
+                <div className="flex items-center gap-3 px-5 py-3 bg-yellow-50">
+                  <span className="text-xl w-7 shrink-0 text-center">⭐</span>
+                  <div className="flex-1">
+                    <p className="font-black text-yellow-800 text-sm">Jackpot</p>
+                    {g.jackpotThingName && <p className="text-xs text-yellow-600 mt-0.5">Prize: {g.jackpotThingName}</p>}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {g.jackpotThingPhoto && <img src={g.jackpotThingPhoto} alt={g.jackpotThingName} className="w-10 h-10 rounded-lg object-cover border-2 border-yellow-400" />}
+                    <div className="text-right">
+                      {g.jackpotThingName
+                        ? <p className="text-sm font-black text-yellow-700">{g.jackpotThingName}</p>
+                        : <p className="text-lg font-black text-yellow-700">₹{g.jackpotAmount.toLocaleString()}</p>
+                      }
+                      {g.jackpotThingName && g.jackpotAmount > 0 && <p className="text-xs text-yellow-500">+ ₹{g.jackpotAmount.toLocaleString()}</p>}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            {/* Total */}
+            <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Total Prize Pool</p>
+              <p className="text-xl font-black text-slate-800">₹{g.estimatedPrizePool.toLocaleString()}</p>
+            </div>
+          </div>
+
+          {/* Ticket Info */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
+            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
+              <p className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                <Ticket className="w-3.5 h-3.5 text-sky-500" /> Ticket Info
+              </p>
+            </div>
+            <div className="grid grid-cols-3 divide-x divide-slate-100">
+              <div className="px-4 py-4 text-center">
+                <p className="text-2xl font-black text-sky-600">{gAvailable}</p>
+                <p className="text-xs text-slate-500 mt-0.5">Available</p>
+              </div>
+              <div className="px-4 py-4 text-center">
+                <p className="text-2xl font-black text-slate-700">{g.sheetIds.length}</p>
+                <p className="text-xs text-slate-500 mt-0.5">Total Sheets</p>
+              </div>
+              <div className="px-4 py-4 text-center">
+                <p className="text-2xl font-black text-emerald-600">₹{g.ticketPrice}</p>
+                <p className="text-xs text-slate-500 mt-0.5">Per Sheet</p>
+              </div>
+            </div>
+          </div>
+
+          {/* CTA */}
+          <div className="flex flex-col gap-3 pb-6">
+            <button
+              onClick={() => openPicker(g)}
+              disabled={gAvailable === 0}
+              className="w-full flex items-center justify-center gap-2 bg-amber-400 hover:bg-amber-300 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all text-slate-900 font-black px-6 py-4 rounded-2xl text-lg shadow-xl shadow-amber-200"
+            >
+              {gAvailable === 0 ? 'Sold Out' : <><Ticket className="w-5 h-5" /> Pick Your Tickets <ChevronRight className="w-5 h-5" /></>}
+            </button>
+            {upiSettings.whatsappNumber && (
+              <a
+                href={`https://wa.me/${upiSettings.whatsappNumber}`}
+                target="_blank" rel="noopener noreferrer"
+                className="w-full flex items-center justify-center gap-2 bg-green-500 hover:bg-green-400 text-white font-bold py-3.5 rounded-2xl text-base shadow-lg"
+              >
+                <MessageCircle className="w-5 h-5" /> Contact Support on WhatsApp
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ── PICKER ───────────────────────────────────────────────────────────────────
 

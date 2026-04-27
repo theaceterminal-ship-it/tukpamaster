@@ -509,6 +509,11 @@ export function useTambola() {
     await supabase.from('sheets').update({ game_id: null }).eq('game_id', id);
   }, []);
 
+  const rescheduleGame = useCallback(async (id: string, newScheduledAt: string) => {
+    setScheduledGames(prev => prev.map(g => g.id === id ? { ...g, scheduledAt: newScheduledAt } : g));
+    await supabase.from('scheduled_games').update({ scheduled_at: newScheduledAt }).eq('id', id);
+  }, []);
+
   const linkScheduledGame = useCallback(async (scheduledId: string, sessionId: string) => {
     setScheduledGames(prev => prev.map(g => g.id === scheduledId ? { ...g, sessionId } : g));
     await supabase.from('scheduled_games').update({ session_id: sessionId }).eq('id', scheduledId);
@@ -560,7 +565,7 @@ export function useTambola() {
     loading,
     sheets, agents, players, orders, currentGame, gameHistory, currentPage, stats,
     sheetPrice, setSheetPrice, upiSettings, setUpiSettings,
-    scheduledGames, scheduleGame, removeScheduledGame, linkScheduledGame,
+    scheduledGames, scheduleGame, removeScheduledGame, rescheduleGame, linkScheduledGame,
     setCurrentPage,
     generateSingleSheet, generateMultipleSheets, generateSheetsForGame, deleteSheetsById,
     assignSheetToAgent, assignSheetsByRange,

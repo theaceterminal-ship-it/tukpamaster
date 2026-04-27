@@ -18,10 +18,12 @@ interface LiveGameProps {
 }
 
 export function LiveGame({ tambola }: LiveGameProps) {
-  const { currentGame, createGame, startGame, callNumber, endGame, resetGame, sheets, setCurrentPage, scheduleGame, scheduledGames, removeScheduledGame, linkScheduledGame } = tambola;
+  const { currentGame, createGame, startGame, callNumber, endGame, resetGame, sheets, setCurrentPage, scheduleGame, scheduledGames, removeScheduledGame, rescheduleGame, linkScheduledGame } = tambola;
   const [gameName, setGameName] = useState('');
   const [autoCall, setAutoCall] = useState(false);
   const [schedDialogOpen, setSchedDialogOpen] = useState(false);
+  const [rescheduleId, setRescheduleId] = useState<string | null>(null);
+  const [rescheduleAt, setRescheduleAt] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [callInterval, setCallInterval] = useState(5);
   const [lastCalled, setLastCalled] = useState<number | null>(null);
@@ -237,35 +239,58 @@ export function LiveGame({ tambola }: LiveGameProps) {
             </CardHeader>
             <CardContent className="space-y-2">
               {[...pendingScheduled].sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()).map(g => (
-                <div key={g.id} className="flex items-center justify-between py-2.5 px-3 border border-slate-100 rounded-xl bg-slate-50 gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800 truncate">{g.name}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      {new Date(g.scheduledAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
-                      {' · '}₹{g.estimatedPrizePool.toLocaleString()} pool
-                      {' · '}{g.sheetIds.length} sheets
-                    </p>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {g.prizes.slice(0, 3).map(p => (
-                        <span key={p.type} className="text-xs bg-white border border-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full">
-                          {p.label} ₹{p.amount}
-                        </span>
-                      ))}
-                      {g.prizes.length > 3 && (
-                        <span className="text-xs text-slate-400 px-1">+{g.prizes.length - 3} more</span>
-                      )}
+                <div key={g.id} className="border border-slate-200 rounded-xl bg-slate-50 overflow-hidden">
+                  <div className="flex items-center gap-3 py-2.5 px-3">
+                    {g.backgroundImage && (
+                      <img src={g.backgroundImage} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0 border border-slate-200" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-800 truncate">{g.name}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {new Date(g.scheduledAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                        {' · '}₹{g.estimatedPrizePool.toLocaleString()} pool · {g.sheetIds.length} sheets
+                      </p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {g.prizes.slice(0, 3).map(p => (
+                          <span key={p.type} className="text-xs bg-white border border-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full">
+                            {p.label} {p.thingName ? `(${p.thingName})` : `₹${p.amount}`}
+                          </span>
+                        ))}
+                        {g.hasJackpot && <span className="text-xs bg-yellow-100 border border-yellow-300 text-yellow-700 px-1.5 py-0.5 rounded-full">⭐ Jackpot</span>}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Button
-                      size="sm"
-                      onClick={() => handleLaunchScheduled(g)}
-                      className="bg-red-500 hover:bg-red-600 text-white gap-1.5 text-xs"
-                    >
+                    <Button size="sm" onClick={() => handleLaunchScheduled(g)} className="bg-red-500 hover:bg-red-600 text-white gap-1.5 text-xs shrink-0">
                       <Play className="w-3 h-3" /> Launch
                     </Button>
-                    <button onClick={() => removeScheduledGame(g.id)} className="text-slate-300 hover:text-red-400 text-xs">Remove</button>
                   </div>
+                  {/* Reschedule / Delete bar */}
+                  {rescheduleId === g.id ? (
+                    <div className="flex items-center gap-2 px-3 pb-3">
+                      <input
+                        type="datetime-local"
+                        value={rescheduleAt}
+                        onChange={e => setRescheduleAt(e.target.value)}
+                        className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      />
+                      <Button size="sm" onClick={async () => { if (rescheduleAt) { await rescheduleGame(g.id, new Date(rescheduleAt).toISOString()); setRescheduleId(null); setRescheduleAt(''); }}} disabled={!rescheduleAt} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold text-xs">Save</Button>
+                      <Button size="sm" variant="outline" onClick={() => { setRescheduleId(null); setRescheduleAt(''); }} className="text-xs">Cancel</Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 px-3 pb-2.5">
+                      <button
+                        onClick={() => { setRescheduleId(g.id); setRescheduleAt(new Date(g.scheduledAt).toISOString().slice(0, 16)); }}
+                        className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2.5 py-1 rounded-lg transition-colors"
+                      >
+                        <Clock className="w-3 h-3" /> Reschedule
+                      </button>
+                      <button
+                        onClick={() => { if (window.confirm(`Delete "${g.name}"? This cannot be undone.`)) removeScheduledGame(g.id); }}
+                        className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-2.5 py-1 rounded-lg transition-colors"
+                      >
+                        <span>🗑</span> Delete
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </CardContent>
