@@ -147,6 +147,66 @@ export function buildBulkPDF(sheets: Sheet[], config: LayoutConfig): jsPDF {
 
 // ─── Multi-up layout (replicates Ticket Printer grid logic) ──────────────────
 
+// Classic style scaled to cell (ox, oy) — natural box: 186 × 270mm
+function renderClassicSheetScaled(
+  doc: jsPDF, sheet: Sheet, config: LayoutConfig,
+  ox: number, oy: number, scale: number,
+) {
+  const sheetNum       = parseInt(sheet.id.replace('SHEET-', ''), 10) || 1;
+  const firstTicketNum = (sheetNum - 1) * 6 + 1;
+  const cW             = 186 * scale;
+  const colW           = cW / 9;
+  const rowH           = 10 * scale;
+  const gridH          = 30 * scale;
+  const blockH         = 43 * scale;
+
+  // Event name header
+  doc.setFontSize(Math.max(4, 14 * scale));
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 0, 0);
+  doc.text(config.eventName, ox + cW / 2, oy + 6 * scale, { align: 'center' });
+
+  let yPos = oy + 8 * scale;
+
+  for (let i = 0; i < sheet.tickets.length; i++) {
+    const [r, g, b] = CLASSIC_COLORS[i % 6];
+    const ticketNum = String(firstTicketNum + i).padStart(3, '0');
+
+    doc.setFontSize(Math.max(3, 7 * scale));
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(90, 90, 90);
+    doc.text(ticketNum, ox + cW, yPos + 3.5 * scale, { align: 'right' });
+
+    const gridY = yPos + 5 * scale;
+    doc.setDrawColor(r, g, b);
+    doc.setLineWidth(Math.max(0.08, 0.55 * scale));
+    doc.rect(ox, gridY, cW, gridH);
+    for (let row = 1; row < 3; row++)
+      doc.line(ox, gridY + row * rowH, ox + cW, gridY + row * rowH);
+    for (let col = 1; col < 9; col++)
+      doc.line(ox + col * colW, gridY, ox + col * colW, gridY + gridH);
+
+    doc.setFontSize(Math.max(4, 16 * scale));
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    for (let row = 0; row < 3; row++) {
+      for (let col = 0; col < 9; col++) {
+        const num = sheet.tickets[i].numbers[row][col];
+        if (num !== null)
+          doc.text(String(num), ox + col * colW + colW / 2, gridY + row * rowH + rowH * 0.64, { align: 'center' });
+      }
+    }
+
+    yPos += blockH;
+  }
+
+  doc.setFontSize(Math.max(3, 8 * scale));
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Sheet #${sheetNum}`, ox + cW / 2, yPos + 2 * scale, { align: 'center' });
+}
+
+
 function getGridConfig(n: number): { cols: number; rows: number; orientation: 'portrait' | 'landscape' } {
   switch (n) {
     case 1:  return { cols: 1, rows: 1, orientation: 'portrait'  };
@@ -242,9 +302,10 @@ export function buildMultiUpPDF(sheets: Sheet[], sheetsPerPage: number, config: 
   const cellW  = (pageW - margin * 2 - gap * (cols - 1)) / cols;
   const cellH  = (pageH - margin * 2 - gap * (rows - 1)) / rows;
 
-  // Use tight content bounds: sidebar (18mm) + 9-col grid (135mm) × 6 ticket blocks (48mm each)
-  const NATURAL_W = 153;
-  const NATURAL_H = 288;
+  // Natural content bounds: compact = sidebar(18)+grid(135) × 6×48mm; classic = 186 × 270mm
+  const isClassic = config.template === 'classic';
+  const NATURAL_W = isClassic ? 186 : 153;
+  const NATURAL_H = isClassic ? 270 : 288;
   const scale     = Math.min(cellW / NATURAL_W, cellH / NATURAL_H);
   const scaledW   = NATURAL_W * scale;
   const scaledH   = NATURAL_H * scale;
@@ -260,7 +321,8 @@ export function buildMultiUpPDF(sheets: Sheet[], sheetsPerPage: number, config: 
       const row = Math.floor(pos / cols);
       const ox  = margin + col * (cellW + gap) + (cellW - scaledW) / 2;
       const oy  = margin + row * (cellH + gap) + (cellH - scaledH) / 2;
-      renderSheetScaled(doc, sheet, config, ox, oy, scale);
+      if (isClassic) renderClassicSheetScaled(doc, sheet, config, ox, oy, scale);
+      else           renderSheetScaled(doc, sheet, config, ox, oy, scale);
     });
   }
 

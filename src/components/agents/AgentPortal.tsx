@@ -109,6 +109,7 @@ function GameGroupCard({
   const [page,        setPage]        = useState(1);
   const [selected,    setSelected]    = useState<Set<string>>(new Set());
   const [layout,      setLayout]      = useState(2);
+  const [template,    setTemplate]    = useState<'compact' | 'classic'>('compact');
   const [downloading, setDownloading] = useState(false);
   const [buyerOpen,   setBuyerOpen]   = useState(false);
   const [buyerName,   setBuyerName]   = useState('');
@@ -133,9 +134,11 @@ function GameGroupCard({
   const totalPages  = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage    = Math.min(page, totalPages);
   const pageItems   = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-  const allPageSelected = pageItems.length > 0 && pageItems.every(s => selected.has(s.id));
+  const availablePageItems = pageItems.filter(s => s.status !== 'sold');
+  const allPageSelected    = availablePageItems.length > 0 && availablePageItems.every(s => selected.has(s.id));
 
-  const toggleSheet = (id: string) => {
+  const toggleSheet = (id: string, isSold: boolean) => {
+    if (isSold) return;
     setSelected(prev => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
@@ -146,13 +149,14 @@ function GameGroupCard({
   const togglePageAll = () => {
     setSelected(prev => {
       const next = new Set(prev);
-      if (allPageSelected) pageItems.forEach(s => next.delete(s.id));
-      else pageItems.forEach(s => next.add(s.id));
+      if (allPageSelected) availablePageItems.forEach(s => next.delete(s.id));
+      else availablePageItems.forEach(s => next.add(s.id));
       return next;
     });
   };
 
-  const selectedSheets = sheets.filter(s => selected.has(s.id));
+  // Only unsold sheets can be selected; filter defensively on download too
+  const selectedSheets = sheets.filter(s => selected.has(s.id) && s.status !== 'sold');
 
   const openBuyerDialog = () => {
     if (selectedSheets.length === 0 || downloading) return;
@@ -165,7 +169,8 @@ function GameGroupCard({
     setBuyerOpen(false);
     setDownloading(true);
     try {
-      buildMultiUpPDF(selectedSheets, layout, DEFAULT_LAYOUT)
+      const config = { ...DEFAULT_LAYOUT, template };
+      buildMultiUpPDF(selectedSheets, layout, config)
         .save(`${gameName.replace(/\s+/g, '-')}-${layout}pp.pdf`);
       selectedSheets.forEach(s => onSell(s.id, buyerName.trim(), buyerPhone.trim()));
       setSelected(new Set());
@@ -282,12 +287,30 @@ function GameGroupCard({
           </div>
 
           {/* Print toolbar — appears when sheets are selected */}
-          {selected.size > 0 && (
+          {selectedSheets.length > 0 && (
             <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex-wrap">
               <span className="text-sm font-semibold text-blue-800 flex items-center gap-1.5 shrink-0">
                 <Printer className="w-4 h-4" />
-                {selected.size} sheet{selected.size > 1 ? 's' : ''} selected
+                {selectedSheets.length} sheet{selectedSheets.length > 1 ? 's' : ''}
               </span>
+
+              {/* Template toggle */}
+              <div className="flex items-center gap-1 border border-blue-200 rounded-lg overflow-hidden shrink-0">
+                {(['compact', 'classic'] as const).map(t => (
+                  <button
+                    key={t}
+                    onClick={() => setTemplate(t)}
+                    className={`text-xs px-2.5 py-1 font-medium capitalize transition-colors ${
+                      template === t
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white text-blue-700 hover:bg-blue-50'
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-xs text-blue-600 shrink-0">per page:</span>
                 {PRINT_LAYOUTS.map(l => (
@@ -318,7 +341,7 @@ function GameGroupCard({
                   className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5 text-xs h-8"
                 >
                   <Download className="w-3 h-3" />
-                  {downloading ? 'Downloading…' : `Download ${selected.size} sheet${selected.size > 1 ? 's' : ''}`}
+                  {downloading ? 'Downloading…' : `Download ${selectedSheets.length} sheet${selectedSheets.length > 1 ? 's' : ''}`}
                 </Button>
               </div>
             </div>
@@ -344,16 +367,20 @@ function GameGroupCard({
               <div className="divide-y divide-slate-50">
                 {pageItems.map(sheet => {
                   const isSold    = sheet.status === 'sold';
-                  const isChecked = selected.has(sheet.id);
+                  const isChecked = selected.has(sheet.id) && !isSold;
                   return (
                     <div
                       key={sheet.id}
-                      className={`flex items-center gap-3 py-2 px-1 rounded transition-colors cursor-default ${isChecked ? 'bg-blue-50' : 'hover:bg-slate-50'}`}
+                      className={`flex items-center gap-3 py-2 px-1 rounded transition-colors cursor-default ${isChecked ? 'bg-blue-50' : isSold ? 'opacity-60' : 'hover:bg-slate-50'}`}
                     >
-                      <button onClick={() => toggleSheet(sheet.id)} className="w-5 shrink-0 flex items-center">
+                      <button
+                        onClick={() => toggleSheet(sheet.id, isSold)}
+                        disabled={isSold}
+                        className="w-5 shrink-0 flex items-center disabled:cursor-not-allowed"
+                      >
                         {isChecked
                           ? <CheckSquare className="w-4 h-4 text-blue-600" />
-                          : <Square className="w-4 h-4 text-slate-300 hover:text-slate-400" />}
+                          : <Square className={`w-4 h-4 ${isSold ? 'text-slate-200' : 'text-slate-300 hover:text-slate-400'}`} />}
                       </button>
                       <span className="font-mono text-xs text-slate-700 w-24 shrink-0">{sheet.id}</span>
                       <span className={`w-20 shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full text-center ${isSold ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
@@ -366,7 +393,7 @@ function GameGroupCard({
                         <Button size="sm" variant="ghost" onClick={() => onPreview(sheet)} className="h-7 w-7 p-0 text-slate-400 hover:text-blue-500 hover:bg-blue-50">
                           <Eye className="w-3.5 h-3.5" />
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => buildSheetPDF(sheet, DEFAULT_LAYOUT).save(`${sheet.id}.pdf`)} className="h-7 px-2 text-xs gap-1 text-slate-500 hover:text-slate-700">
+                        <Button size="sm" variant="ghost" onClick={() => buildSheetPDF(sheet, { ...DEFAULT_LAYOUT, template }).save(`${sheet.id}.pdf`)} className="h-7 px-2 text-xs gap-1 text-slate-500 hover:text-slate-700">
                           <Download className="w-3 h-3" />
                         </Button>
                         {!isSold && (
