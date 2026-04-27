@@ -302,7 +302,7 @@ export function Marketplace() {
   const [lookupPhone, setLookupPhone] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
 
-  const { currentGame, scheduledGames, sheets, sheetPrice, upiSettings, gameHistory } = tambola;
+  const { currentGame, scheduledGames, sheets, sheetPrice, upiSettings, gameHistory, loading } = tambola;
 
   const [pickerGame, setPickerGame] = useState<ScheduledGame | null>(null);
 
@@ -445,6 +445,16 @@ export function Marketplace() {
         </div>
       </div>
     </header>
+  );
+
+  // ─── LOADING ─────────────────────────────────────────────────────────────────
+
+  if (loading) return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4"
+      style={{ background: 'linear-gradient(180deg, #e0f2fe 0%, #38bdf8 40%, #0284c7 100%)' }}>
+      <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin" />
+      <p className="text-white font-bold text-lg tracking-wide">Loading games…</p>
+    </div>
   );
 
   // ─── HOME ────────────────────────────────────────────────────────────────────
