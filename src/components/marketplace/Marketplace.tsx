@@ -511,7 +511,15 @@ export function Marketplace() {
   const [pickerGame, setPickerGame] = useState<ScheduledGame | null>(null);
   const [detailGame, setDetailGame] = useState<ScheduledGame | null>(null);
 
-  const availableSheets = useMemo(() => sheets.filter(s => s.status === 'available'), [sheets]);
+  const endedScheduledIds = useMemo(() => {
+    const completedIds = new Set(gameHistory.map(g => g.id));
+    return new Set(scheduledGames.filter(g => g.sessionId && completedIds.has(g.sessionId)).map(g => g.id));
+  }, [gameHistory, scheduledGames]);
+
+  const availableSheets = useMemo(() =>
+    sheets.filter(s => s.status === 'available' && !(s.scheduledGameId && endedScheduledIds.has(s.scheduledGameId))),
+    [sheets, endedScheduledIds],
+  );
 
   const heroGame = (currentGame && (currentGame.status === 'active' || currentGame.status === 'setup'))
     ? currentGame : null;
@@ -694,8 +702,8 @@ export function Marketplace() {
           <TradeFairHero
             name={heroGame.name}
             prizePool={heroGame.totalPrizePool}
-            availableCount={availableSheets.length}
-            totalSheets={sheets.length}
+            availableCount={availableSheets.filter(s => heroGame.sheetIds.includes(s.id)).length}
+            totalSheets={heroGame.sheetIds.length}
             price={price}
             isLive={heroGame.status === 'active'}
             calledCount={heroGame.calledNumbers.length}
@@ -1080,7 +1088,7 @@ export function Marketplace() {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500">Total in Game</span>
-                <span className="font-bold text-slate-400">{pickerGame ? pickerGame.sheetIds.length : sheets.length}</span>
+                <span className="font-bold text-slate-400">{pickerGame?.sheetIds.length ?? 0}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500">Price Each</span>
