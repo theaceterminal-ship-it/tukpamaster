@@ -356,7 +356,7 @@ function GameInventory({ game, tambola }: { game: ScheduledGame; tambola: Return
 export function LiveGame({ tambola }: LiveGameProps) {
   const {
     currentGame, createGame, startGame, callNumber, endGame, resetGame,
-    sheets, scheduleGame, scheduledGames, removeScheduledGame, rescheduleGame, linkScheduledGame,
+    scheduleGame, scheduledGames, removeScheduledGame, rescheduleGame, linkScheduledGame,
   } = tambola;
 
   const [schedDialogOpen, setSchedDialogOpen] = useState(false);
