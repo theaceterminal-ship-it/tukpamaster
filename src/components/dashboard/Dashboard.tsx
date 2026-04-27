@@ -142,7 +142,7 @@ export function Dashboard({ tambola }: DashboardProps) {
             <Calendar className="w-10 h-10 mx-auto mb-4 text-gray-300" />
             <p className="text-lg font-black text-gray-900">No game scheduled</p>
             <p className="text-sm text-gray-400 mt-1 mb-5">Schedule a game to see it here as your dashboard hub</p>
-            <Button onClick={() => setCurrentPage('live-game')} className="w-full font-bold text-white" style={{ backgroundColor: '#e8622a' }}>
+            <Button onClick={() => setCurrentPage('live-game')} className="w-full font-bold text-white" style={{ backgroundColor: '#0ea5e9' }}>
               Schedule a Game
             </Button>
           </div>
@@ -255,7 +255,7 @@ export function Dashboard({ tambola }: DashboardProps) {
               <Button
                 onClick={() => setCurrentPage('live-game')}
                 className="gap-2.5 font-bold text-white px-6 py-2.5 text-sm"
-                style={{ backgroundColor: '#e8622a' }}
+                style={{ backgroundColor: '#0ea5e9' }}
               >
                 <Radio className="w-4 h-4 animate-pulse" /> Open Live Game
               </Button>
@@ -263,7 +263,7 @@ export function Dashboard({ tambola }: DashboardProps) {
               <Button
                 onClick={handleLaunch}
                 className="gap-2.5 font-bold text-white px-6 py-2.5 text-sm"
-                style={{ backgroundColor: '#e8622a' }}
+                style={{ backgroundColor: '#0ea5e9' }}
               >
                 <Radio className="w-4 h-4" /> Launch Game
               </Button>
@@ -288,7 +288,7 @@ export function Dashboard({ tambola }: DashboardProps) {
         ].map(s => (
           <div key={s.label} className="rounded-xl p-4 flex items-center gap-3" style={CARD}>
             <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(232,98,42,0.1)' }}>
-              <s.icon className="w-4 h-4" style={{ color: '#e8622a' }} />
+              <s.icon className="w-4 h-4" style={{ color: '#0ea5e9' }} />
             </div>
             <div>
               <p className={`text-xl font-black tabular-nums leading-none ${s.color}`}>
@@ -334,7 +334,7 @@ export function Dashboard({ tambola }: DashboardProps) {
               <span className="flex items-center gap-1.5 text-xs text-gray-400">
                 <span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />Assigned {assignedPct}%
               </span>
-              <span className="ml-auto text-sm font-black" style={{ color: '#e8622a' }}>
+              <span className="ml-auto text-sm font-black" style={{ color: '#0ea5e9' }}>
                 ₹{revenue.toLocaleString()}
               </span>
             </div>
@@ -359,7 +359,7 @@ export function Dashboard({ tambola }: DashboardProps) {
                 <div key={a.id} className="flex items-center gap-2.5">
                   <span
                     className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-black shrink-0"
-                    style={{ backgroundColor: i === 0 ? 'rgba(232,98,42,0.12)' : '#f5f5f5', color: i === 0 ? '#e8622a' : '#9ca3af' }}
+                    style={{ backgroundColor: i === 0 ? 'rgba(232,98,42,0.12)' : '#f5f5f5', color: i === 0 ? '#0ea5e9' : '#9ca3af' }}
                   >
                     {i + 1}
                   </span>
@@ -369,7 +369,7 @@ export function Dashboard({ tambola }: DashboardProps) {
                       <span className="text-xs text-gray-400 tabular-nums shrink-0 ml-2">{a.sold}/{a.total} · ₹{a.revenue.toLocaleString()}</span>
                     </div>
                     <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all" style={{ width: `${a.pct}%`, backgroundColor: '#e8622a' }} />
+                      <div className="h-full rounded-full transition-all" style={{ width: `${a.pct}%`, backgroundColor: '#0ea5e9' }} />
                     </div>
                   </div>
                 </div>
@@ -380,7 +380,7 @@ export function Dashboard({ tambola }: DashboardProps) {
           <button
             onClick={() => setCurrentPage('agents')}
             className="w-full mt-4 text-xs font-semibold flex items-center justify-center gap-1 py-2 rounded-xl hover:bg-gray-50 transition-colors"
-            style={{ color: '#e8622a' }}
+            style={{ color: '#0ea5e9' }}
           >
             Full breakdown <ArrowRight className="w-3 h-3" />
           </button>
@@ -430,7 +430,7 @@ export function Dashboard({ tambola }: DashboardProps) {
                   <button
                     onClick={() => setCurrentPage('pending-payments')}
                     className="w-full mt-2 text-xs font-semibold flex items-center justify-center gap-1 py-1.5 rounded-xl hover:bg-gray-50 transition-colors"
-                    style={{ color: '#e8622a' }}
+                    style={{ color: '#0ea5e9' }}
                   >
                     +{allPending.length - 3} more <ArrowRight className="w-3 h-3" />
                   </button>
@@ -454,7 +454,7 @@ export function Dashboard({ tambola }: DashboardProps) {
               <div className="w-px self-stretch bg-gray-100" />
               <div>
                 <p className="text-[11px] text-gray-400 mb-0.5">Pending</p>
-                <p className="text-2xl font-black tabular-nums" style={{ color: '#e8622a' }}>+₹{pendingAmount.toLocaleString()}</p>
+                <p className="text-2xl font-black tabular-nums" style={{ color: '#0ea5e9' }}>+₹{pendingAmount.toLocaleString()}</p>
                 <p className="text-[11px] text-gray-400 mt-0.5">{allPending.length} awaiting</p>
               </div>
             </div>
@@ -462,7 +462,7 @@ export function Dashboard({ tambola }: DashboardProps) {
               <button
                 onClick={() => setCurrentPage('pending-payments')}
                 className="w-full mt-3 text-xs font-semibold flex items-center justify-center gap-1 py-1.5 rounded-xl hover:bg-gray-50 transition-colors"
-                style={{ color: '#e8622a' }}
+                style={{ color: '#0ea5e9' }}
               >
                 Review payments <ArrowRight className="w-3 h-3" />
               </button>

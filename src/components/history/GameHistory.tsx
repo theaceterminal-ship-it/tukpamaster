@@ -32,7 +32,7 @@ export function GameHistory({ tambola }: GameHistoryProps) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <History className="w-6 h-6" style={{ color: '#e8622a' }} />
+            <History className="w-6 h-6" style={{ color: '#0ea5e9' }} />
             Game History
           </h2>
           <p className="text-slate-500 mt-1">View all past games, winners, and statistics.</p>
@@ -74,7 +74,7 @@ export function GameHistory({ tambola }: GameHistoryProps) {
         ].map(s => (
           <div key={s.label} className="rounded-xl p-4 flex items-center gap-3" style={CARD}>
             <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(232,98,42,0.1)' }}>
-              <s.icon className="w-4 h-4" style={{ color: '#e8622a' }} />
+              <s.icon className="w-4 h-4" style={{ color: '#0ea5e9' }} />
             </div>
             <div>
               <p className="text-xl font-black text-slate-800 tabular-nums">
@@ -152,7 +152,7 @@ export function GameHistory({ tambola }: GameHistoryProps) {
           <div className="space-y-4">
             <div className="rounded-2xl p-5" style={CARD}>
               <div className="flex items-center gap-2 mb-4">
-                <TrendingUp className="w-4 h-4" style={{ color: '#e8622a' }} />
+                <TrendingUp className="w-4 h-4" style={{ color: '#0ea5e9' }} />
                 <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Activity Heatmap</p>
               </div>
               <div className="grid grid-cols-7 gap-1.5">
@@ -190,7 +190,7 @@ export function GameHistory({ tambola }: GameHistoryProps) {
                     <div key={g.id} className="flex items-center gap-2.5">
                       <span
                         className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-black shrink-0"
-                        style={{ backgroundColor: i === 0 ? 'rgba(232,98,42,0.12)' : '#f5f5f5', color: i === 0 ? '#e8622a' : '#9ca3af' }}
+                        style={{ backgroundColor: i === 0 ? 'rgba(232,98,42,0.12)' : '#f5f5f5', color: i === 0 ? '#0ea5e9' : '#9ca3af' }}
                       >
                         {i + 1}
                       </span>
@@ -198,7 +198,7 @@ export function GameHistory({ tambola }: GameHistoryProps) {
                         <p className="text-xs font-semibold text-slate-800 truncate">{g.name}</p>
                         <p className="text-[11px] text-slate-400">{new Date(g.date).toLocaleDateString()}</p>
                       </div>
-                      <span className="text-sm font-black tabular-nums shrink-0" style={{ color: '#e8622a' }}>
+                      <span className="text-sm font-black tabular-nums shrink-0" style={{ color: '#0ea5e9' }}>
                         ₹{g.totalPrizeDistributed.toLocaleString()}
                       </span>
                     </div>

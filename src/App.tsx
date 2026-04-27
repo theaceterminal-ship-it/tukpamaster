@@ -46,7 +46,7 @@ function OperatorApp() {
   return (
     <>
       <Splash visible={splash} />
-      <div className="flex h-screen w-screen overflow-hidden" style={{ backgroundColor: '#e8622a' }}>
+      <div className="flex h-screen w-screen overflow-hidden" style={{ backgroundColor: '#0ea5e9' }}>
         <Sidebar
           currentPage={tambola.currentPage}
           onPageChange={tambola.setCurrentPage}

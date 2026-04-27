@@ -85,7 +85,7 @@ export function PrizeManager({ tambola }: PrizeManagerProps) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <Trophy className="w-6 h-6" style={{ color: '#e8622a' }} />
+            <Trophy className="w-6 h-6" style={{ color: '#0ea5e9' }} />
             Prize Manager
           </h2>
           <p className="text-slate-500 mt-1">Configure prize categories, track winners, and manage payouts.</p>
@@ -119,14 +119,14 @@ export function PrizeManager({ tambola }: PrizeManagerProps) {
                 </div>
                 <DialogFooter>
                   <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-                  <Button onClick={handleClaim} className="font-bold text-white" style={{ backgroundColor: '#e8622a' }}>Confirm Claim</Button>
+                  <Button onClick={handleClaim} className="font-bold text-white" style={{ backgroundColor: '#0ea5e9' }}>Confirm Claim</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
           )}
           <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
             <DialogTrigger asChild>
-              <Button className="gap-2 font-bold text-white" style={{ backgroundColor: '#e8622a' }}>
+              <Button className="gap-2 font-bold text-white" style={{ backgroundColor: '#0ea5e9' }}>
                 <Plus className="w-4 h-4" /> Add Prize
               </Button>
             </DialogTrigger>
@@ -151,7 +151,7 @@ export function PrizeManager({ tambola }: PrizeManagerProps) {
               </div>
               <DialogFooter>
                 <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-                <Button onClick={handleAddPrize} className="font-bold text-white" style={{ backgroundColor: '#e8622a' }}>Add Prize</Button>
+                <Button onClick={handleAddPrize} className="font-bold text-white" style={{ backgroundColor: '#0ea5e9' }}>Add Prize</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -167,7 +167,7 @@ export function PrizeManager({ tambola }: PrizeManagerProps) {
         ].map(s => (
           <div key={s.label} className="rounded-xl p-4 flex items-center gap-3" style={CARD}>
             <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(232,98,42,0.1)' }}>
-              <s.icon className="w-4 h-4" style={{ color: '#e8622a' }} />
+              <s.icon className="w-4 h-4" style={{ color: '#0ea5e9' }} />
             </div>
             <div>
               <p className={`text-2xl font-black tabular-nums ${s.color}`}>{s.value}</p>

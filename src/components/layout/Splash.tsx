@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Dice5 } from 'lucide-react';
 
-const TERRA = '#e8622a';
+const TERRA = '#0ea5e9';
 
 export function Splash({ visible }: { visible: boolean }) {
   return (

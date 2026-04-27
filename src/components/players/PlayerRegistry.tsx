@@ -59,7 +59,7 @@ export function PlayerRegistry({ tambola }: PlayerRegistryProps) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <UserCircle className="w-6 h-6" style={{ color: '#e8622a' }} />
+            <UserCircle className="w-6 h-6" style={{ color: '#0ea5e9' }} />
             Player Registry
           </h2>
           <p className="text-slate-500 mt-1">Register players, assign tickets, and track participation.</p>
@@ -93,14 +93,14 @@ export function PlayerRegistry({ tambola }: PlayerRegistryProps) {
               </div>
               <DialogFooter>
                 <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-                <Button onClick={handleAssignTicket} className="font-bold text-white" style={{ backgroundColor: '#e8622a' }}>Assign</Button>
+                <Button onClick={handleAssignTicket} className="font-bold text-white" style={{ backgroundColor: '#0ea5e9' }}>Assign</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
 
           <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
             <DialogTrigger asChild>
-              <Button className="gap-2 font-bold text-white" style={{ backgroundColor: '#e8622a' }}>
+              <Button className="gap-2 font-bold text-white" style={{ backgroundColor: '#0ea5e9' }}>
                 <Plus className="w-4 h-4" /> Add Player
               </Button>
             </DialogTrigger>
@@ -118,7 +118,7 @@ export function PlayerRegistry({ tambola }: PlayerRegistryProps) {
               </div>
               <DialogFooter>
                 <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-                <Button onClick={handleAddPlayer} className="font-bold text-white" style={{ backgroundColor: '#e8622a' }}>Add Player</Button>
+                <Button onClick={handleAddPlayer} className="font-bold text-white" style={{ backgroundColor: '#0ea5e9' }}>Add Player</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -141,7 +141,7 @@ export function PlayerRegistry({ tambola }: PlayerRegistryProps) {
             ].map(s => (
               <div key={s.label} className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(232,98,42,0.1)' }}>
-                  <s.icon className="w-3.5 h-3.5" style={{ color: '#e8622a' }} />
+                  <s.icon className="w-3.5 h-3.5" style={{ color: '#0ea5e9' }} />
                 </div>
                 <div>
                   <p className={`text-lg font-black tabular-nums ${s.color}`}>

@@ -46,7 +46,7 @@ function AddAgentDialog({ onAdd }: { onAdd: (name: string, phone: string, commis
 
   return (
     <>
-      <Button onClick={() => setOpen(true)} className="gap-2 font-bold text-white" style={{ backgroundColor: '#e8622a' }}>
+      <Button onClick={() => setOpen(true)} className="gap-2 font-bold text-white" style={{ backgroundColor: '#0ea5e9' }}>
         <Plus className="w-4 h-4" /> Add Agent
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
@@ -68,7 +68,7 @@ function AddAgentDialog({ onAdd }: { onAdd: (name: string, phone: string, commis
           </div>
           <DialogFooter>
             <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-            <Button onClick={handleSubmit} className="font-bold text-white" style={{ backgroundColor: '#e8622a' }}>Add Agent</Button>
+            <Button onClick={handleSubmit} className="font-bold text-white" style={{ backgroundColor: '#0ea5e9' }}>Add Agent</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -153,7 +153,7 @@ function AssignSheetsDialog({ agent, maxSheet, onAssign }: AssignDialogProps) {
               {result !== null ? 'Close' : 'Cancel'}
             </Button>
             {result === null && (
-              <Button onClick={handleAssign} disabled={!valid} className="font-bold text-white" style={{ backgroundColor: '#e8622a' }}>
+              <Button onClick={handleAssign} disabled={!valid} className="font-bold text-white" style={{ backgroundColor: '#0ea5e9' }}>
                 Assign
               </Button>
             )}
@@ -196,7 +196,7 @@ export function AgentNetwork({ tambola }: AgentNetworkProps) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <Users className="w-6 h-6" style={{ color: '#e8622a' }} />
+            <Users className="w-6 h-6" style={{ color: '#0ea5e9' }} />
             Agent Network
           </h2>
           <p className="text-slate-500 mt-1">Manage agents, assign sheet ranges, track sales.</p>
@@ -213,7 +213,7 @@ export function AgentNetwork({ tambola }: AgentNetworkProps) {
         ].map(c => (
           <div key={c.label} className="rounded-xl p-4 flex items-center gap-3" style={CARD}>
             <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(232,98,42,0.1)' }}>
-              <c.icon className="w-4 h-4" style={{ color: '#e8622a' }} />
+              <c.icon className="w-4 h-4" style={{ color: '#0ea5e9' }} />
             </div>
             <div>
               <p className="text-2xl font-black text-slate-800">{c.value}</p>

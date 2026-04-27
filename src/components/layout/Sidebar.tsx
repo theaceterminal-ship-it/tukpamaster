@@ -51,7 +51,7 @@ export function Sidebar({ currentPage, onPageChange, pendingCount = 0 }: Sidebar
         <span className="flex-1 text-left">{item.label}</span>
         {badge && (
           <span className="min-w-[20px] h-5 bg-white text-[10px] font-black rounded-full flex items-center justify-center px-1"
-            style={{ color: '#c44e1e' }}>
+            style={{ color: '#0284c7' }}>
             {badge > 99 ? '99+' : badge}
           </span>
         )}
@@ -62,7 +62,7 @@ export function Sidebar({ currentPage, onPageChange, pendingCount = 0 }: Sidebar
   return (
     <aside
       className="w-52 flex flex-col shrink-0 border-r border-black/10"
-      style={{ backgroundColor: '#c44e1e' }}
+      style={{ backgroundColor: '#0284c7' }}
     >
       {/* Logo */}
       <div className="px-4 py-5 border-b border-black/10">

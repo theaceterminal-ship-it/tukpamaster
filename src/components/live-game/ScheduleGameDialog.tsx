@@ -349,7 +349,7 @@ export function ScheduleGameDialog({
 
             {/* Total */}
             <div className="flex items-center justify-between py-3 px-4 rounded-xl" style={{ backgroundColor: 'rgba(232,98,42,0.08)', border: '1px solid rgba(232,98,42,0.2)' }}>
-              <span className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#e8622a' }}>Total Prize Pool</span>
+              <span className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#0ea5e9' }}>Total Prize Pool</span>
               <span className="font-black text-2xl text-gray-900">₹{totalPrize.toLocaleString()}</span>
             </div>
           </section>

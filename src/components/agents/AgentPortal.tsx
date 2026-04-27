@@ -181,10 +181,10 @@ export function AgentPortal() {
   // ── Not found ────────────────────────────────────────────────────────────────
 
   if (!agent) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#e8622a' }}>
+    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#0ea5e9' }}>
       <div className="text-center space-y-3 bg-white rounded-2xl p-8 shadow-2xl">
         <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto" style={{ backgroundColor: 'rgba(232,98,42,0.1)' }}>
-          <Dice5 className="w-8 h-8" style={{ color: '#e8622a' }} />
+          <Dice5 className="w-8 h-8" style={{ color: '#0ea5e9' }} />
         </div>
         <p className="text-lg font-bold text-gray-900">Agent not found</p>
         <p className="text-sm text-gray-400">This link may be invalid or the agent was removed.</p>
@@ -195,7 +195,7 @@ export function AgentPortal() {
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen w-full" style={{ backgroundColor: '#e8622a' }}>
+    <div className="min-h-screen w-full" style={{ backgroundColor: '#0ea5e9' }}>
 
       {/* PDF preview */}
       <Dialog open={!!previewUrl} onOpenChange={v => !v && closePreview()}>
@@ -208,7 +208,7 @@ export function AgentPortal() {
       </Dialog>
 
       {/* ── Header ── */}
-      <header className="sticky top-0 z-20 border-b border-black/10 w-full" style={{ backgroundColor: '#c44e1e' }}>
+      <header className="sticky top-0 z-20 border-b border-black/10 w-full" style={{ backgroundColor: '#0284c7' }}>
         <div className="w-full px-6 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
@@ -220,7 +220,7 @@ export function AgentPortal() {
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 rounded-xl px-3 py-1.5" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
-              <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center text-xs font-bold" style={{ color: '#c44e1e' }}>
+              <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center text-xs font-bold" style={{ color: '#0284c7' }}>
                 {agent.name[0].toUpperCase()}
               </div>
               <span className="text-white text-sm font-medium hidden sm:block">{agent.name}</span>
@@ -298,7 +298,7 @@ export function AgentPortal() {
           ].map(s => (
             <div key={s.label} className="rounded-xl p-3.5 flex items-center gap-3" style={CARD}>
               <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(232,98,42,0.1)' }}>
-                <s.icon className="w-4 h-4" style={{ color: '#e8622a' }} />
+                <s.icon className="w-4 h-4" style={{ color: '#0ea5e9' }} />
               </div>
               <div>
                 <p className={`text-xl font-black tabular-nums leading-none ${s.color}`}>
@@ -320,7 +320,7 @@ export function AgentPortal() {
             {gameBreakdown.length > 0 && (
               <div className="rounded-2xl p-5" style={CARD}>
                 <div className="flex items-center gap-2 mb-4">
-                  <BarChart3 className="w-4 h-4" style={{ color: '#e8622a' }} />
+                  <BarChart3 className="w-4 h-4" style={{ color: '#0ea5e9' }} />
                   <p className="text-xs font-bold uppercase tracking-widest text-gray-400">My Games</p>
                 </div>
                 <div className="space-y-3">
@@ -333,7 +333,7 @@ export function AgentPortal() {
                           <span className="text-xs text-gray-400 tabular-nums shrink-0">{g.sold}/{g.total}</span>
                         </div>
                         <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: '#e8622a' }} />
+                          <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: '#0ea5e9' }} />
                         </div>
                         <p className="text-[11px] text-gray-400">{pct}% sold · {g.available} left</p>
                       </div>
@@ -346,7 +346,7 @@ export function AgentPortal() {
             {/* Recent sales */}
             <div className="rounded-2xl p-5" style={CARD}>
               <div className="flex items-center gap-2 mb-4">
-                <Clock className="w-4 h-4" style={{ color: '#e8622a' }} />
+                <Clock className="w-4 h-4" style={{ color: '#0ea5e9' }} />
                 <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Recent Sales</p>
               </div>
               {recentSales.length === 0 ? (

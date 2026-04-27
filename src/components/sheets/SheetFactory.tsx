@@ -387,7 +387,7 @@ export function SheetFactory({ tambola }: SheetFactoryProps) {
       {/* Page heading */}
       <div>
         <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-          <Grid3x3 className="w-6 h-6" style={{ color: '#e8622a' }} /> Sheet Factory
+          <Grid3x3 className="w-6 h-6" style={{ color: '#0ea5e9' }} /> Sheet Factory
         </h2>
         <p className="text-slate-500 mt-1">Generate sheets for a scheduled game · 6 tickets per sheet · all 90 numbers covered</p>
       </div>

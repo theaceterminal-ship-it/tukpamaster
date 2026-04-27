@@ -148,7 +148,7 @@ export function PendingPayments({ tambola }: PendingPaymentsProps) {
       {/* ── Header ── */}
       <div>
         <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-          <ClipboardList className="w-6 h-6" style={{ color: '#e8622a' }} />
+          <ClipboardList className="w-6 h-6" style={{ color: '#0ea5e9' }} />
           Pending Payments
         </h2>
         <p className="text-slate-500 mt-1">Review player orders and confirm or reject UPI payments.</p>
@@ -160,7 +160,7 @@ export function PendingPayments({ tambola }: PendingPaymentsProps) {
         {/* 3 stat boxes */}
         <div className="rounded-xl p-4 flex items-center gap-3 cursor-pointer" style={CARD} onClick={() => setTab('pending')}>
           <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(232,98,42,0.1)' }}>
-            <Clock className="w-4 h-4" style={{ color: '#e8622a' }} />
+            <Clock className="w-4 h-4" style={{ color: '#0ea5e9' }} />
           </div>
           <div>
             <p className="text-2xl font-black text-amber-600 tabular-nums">{counts.pending}</p>
@@ -191,7 +191,7 @@ export function PendingPayments({ tambola }: PendingPaymentsProps) {
         {/* UPI settings — spans remaining 2 cols */}
         <div className="col-span-2 rounded-xl p-4 flex items-end gap-3" style={CARD}>
           <div className="flex items-center gap-2 mb-0.5 shrink-0">
-            <Wallet className="w-4 h-4" style={{ color: '#e8622a' }} />
+            <Wallet className="w-4 h-4" style={{ color: '#0ea5e9' }} />
             <p className="text-xs font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap">Payment Settings</p>
           </div>
           <div className="flex gap-3 flex-1 min-w-0">
