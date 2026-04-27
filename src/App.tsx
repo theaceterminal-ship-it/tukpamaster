@@ -68,6 +68,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/agent/:agentId" element={<AgentPortal />} />
+      <Route path="/agent"          element={<AgentPortal />} />
       <Route path="/marketplace"    element={<Marketplace />} />
       <Route path="/*"              element={<OperatorApp />} />
     </Routes>
