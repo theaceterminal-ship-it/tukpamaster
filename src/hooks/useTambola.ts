@@ -25,6 +25,9 @@ function dbToAgent(row: Record<string, unknown>): Agent {
     id: row.id as string,
     name: row.name as string,
     phone: row.phone as string,
+    whatsapp: (row.whatsapp as string) ?? '',
+    gmail: (row.gmail as string) ?? '',
+    password: (row.password as string) ?? '',
     commission: row.commission as number,
     sheetsAssigned: [],
     totalSales: (row.total_winnings as number) ?? 0,
@@ -275,10 +278,10 @@ export function useTambola() {
 
   // ─── Agent operations ────────────────────────────────────────────────────────
 
-  const addAgent = useCallback(async (name: string, phone: string, commission: number) => {
-    const agent: Agent = { id: `AGENT-${Date.now()}`, name, phone, commission, sheetsAssigned: [], totalSales: 0, createdAt: new Date().toISOString() };
+  const addAgent = useCallback(async (name: string, phone: string, commission: number, whatsapp = '', gmail = '', password = '') => {
+    const agent: Agent = { id: `AGENT-${Date.now()}`, name, phone, whatsapp, gmail, password, commission, sheetsAssigned: [], totalSales: 0, createdAt: new Date().toISOString() };
     setAgents(prev => [...prev, agent]);
-    await supabase.from('agents').insert({ id: agent.id, name, phone, commission, total_games: 0, total_winnings: 0 });
+    await supabase.from('agents').insert({ id: agent.id, name, phone, whatsapp, gmail, password, commission, total_games: 0, total_winnings: 0 });
     return agent;
   }, []);
 

@@ -1,11 +1,10 @@
 import { useState, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
 import { useTambola } from '@/hooks/useTambola';
-import type { Sheet } from '@/types';
+import type { Agent, Sheet } from '@/types';
 import {
-  Download, Package, ShoppingBag, Dice5, Eye,
+  Download, Package, ShoppingBag, Dice5, Eye, EyeOff,
   Search, X, Phone, BadgePercent, Wallet, BarChart3,
-  ChevronLeft, ChevronRight, Clock, User,
+  ChevronLeft, ChevronRight, Clock, User, LogOut,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -94,12 +93,93 @@ function MarkSoldDialog({ sheet, price, onConfirm }: {
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ─── Login screen ─────────────────────────────────────────────────────────────
 
-export function AgentPortal() {
-  const { agentId } = useParams<{ agentId: string }>();
-  const tambola     = useTambola();
-  const agent       = tambola.agents.find(a => a.id === agentId);
+function AgentLogin({ onLogin }: { onLogin: (agent: Agent) => void }) {
+  const tambola  = useTambola();
+  const [phone,    setPhone]    = useState('');
+  const [password, setPassword] = useState('');
+  const [showPwd,  setShowPwd]  = useState(false);
+  const [error,    setError]    = useState('');
+  const [loading,  setLoading]  = useState(false);
+
+  const handleLogin = () => {
+    setError('');
+    setLoading(true);
+    const agent = tambola.agents.find(
+      a => a.phone.replace(/\D/g, '') === phone.replace(/\D/g, '') && a.password === password,
+    );
+    setTimeout(() => {
+      setLoading(false);
+      if (agent) onLogin(agent);
+      else setError('Invalid phone number or password.');
+    }, 400);
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: '#0ea5e9' }}>
+      <div className="w-full max-w-sm space-y-6">
+        {/* Logo */}
+        <div className="text-center space-y-2">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto bg-white/20">
+            <Dice5 className="w-8 h-8 text-white" />
+          </div>
+          <h1 className="text-2xl font-black text-white">Agent Portal</h1>
+          <p className="text-white/70 text-sm">Sign in to access your dashboard</p>
+        </div>
+
+        {/* Card */}
+        <div className="bg-white rounded-2xl p-6 shadow-2xl space-y-4">
+          <div>
+            <Label className="text-slate-600">Phone Number</Label>
+            <Input
+              className="mt-1"
+              type="tel"
+              placeholder="+91 98765 43210"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleLogin()}
+            />
+          </div>
+          <div>
+            <Label className="text-slate-600">Password</Label>
+            <div className="relative mt-1">
+              <Input
+                type={showPwd ? 'text' : 'password'}
+                placeholder="Your portal password"
+                value={password}
+                className="pr-9"
+                onChange={e => setPassword(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleLogin()}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPwd(v => !v)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+          {error && <p className="text-sm text-red-500">{error}</p>}
+          <Button
+            className="w-full font-bold text-white"
+            style={{ backgroundColor: '#0ea5e9' }}
+            disabled={!phone.trim() || !password.trim() || loading}
+            onClick={handleLogin}
+          >
+            {loading ? 'Signing in…' : 'Sign In'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Dashboard (shown after login) ──────────────────────────────────────────
+
+function AgentDashboard({ agent, onLogout }: { agent: Agent; onLogout: () => void }) {
+  const tambola = useTambola();
 
   const [tab,        setTab]        = useState<StatusFilter>('all');
   const [search,     setSearch]     = useState('');
@@ -108,8 +188,8 @@ export function AgentPortal() {
   const [previewId,  setPreviewId]  = useState('');
 
   const mySheets = useMemo(
-    () => tambola.sheets.filter(s => s.assignedTo === agentId),
-    [tambola.sheets, agentId],
+    () => tambola.sheets.filter(s => s.assignedTo === agent.id),
+    [tambola.sheets, agent.id],
   );
 
   const gameBreakdown = useMemo(() => {
@@ -131,7 +211,7 @@ export function AgentPortal() {
   const soldSheets      = mySheets.filter(s => s.status === 'sold');
   const availableSheets = mySheets.filter(s => s.status !== 'sold');
   const revenue         = soldSheets.reduce((sum, s) => sum + (s.price ?? tambola.sheetPrice), 0);
-  const commission      = agent ? Math.round(revenue * agent.commission / 100) : 0;
+  const commission      = Math.round(revenue * agent.commission / 100);
   const sellPct         = mySheets.length > 0 ? Math.round((soldSheets.length / mySheets.length) * 100) : 0;
 
   const recentSales = useMemo(() =>
@@ -175,24 +255,8 @@ export function AgentPortal() {
     setPreviewUrl(null); setPreviewId('');
   };
 
-  const downloadAll   = () => { if (mySheets.length) buildBulkPDF(mySheets, DEFAULT_LAYOUT).save(`sheets-${agent?.name ?? agentId}.pdf`); };
+  const downloadAll   = () => { if (mySheets.length) buildBulkPDF(mySheets, DEFAULT_LAYOUT).save(`sheets-${agent.name}.pdf`); };
   const downloadSheet = (s: Sheet) => { buildSheetPDF(s, DEFAULT_LAYOUT).save(`${parseInt(s.id.replace('SHEET-', ''), 10) || 1}.pdf`); };
-
-  // ── Not found ────────────────────────────────────────────────────────────────
-
-  if (!agent) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#0ea5e9' }}>
-      <div className="text-center space-y-3 bg-white rounded-2xl p-8 shadow-2xl">
-        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto" style={{ backgroundColor: 'rgba(232,98,42,0.1)' }}>
-          <Dice5 className="w-8 h-8" style={{ color: '#0ea5e9' }} />
-        </div>
-        <p className="text-lg font-bold text-gray-900">Agent not found</p>
-        <p className="text-sm text-gray-400">This link may be invalid or the agent was removed.</p>
-      </div>
-    </div>
-  );
-
-  // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen w-full" style={{ backgroundColor: '#0ea5e9' }}>
@@ -230,6 +294,9 @@ export function AgentPortal() {
               <Download className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Download All</span>
               <span className="text-xs opacity-75">({mySheets.length})</span>
+            </Button>
+            <Button onClick={onLogout} size="sm" variant="ghost" className="text-white/70 hover:text-white hover:bg-white/10 gap-1.5">
+              <LogOut className="w-3.5 h-3.5" /> <span className="hidden sm:inline text-xs">Sign out</span>
             </Button>
           </div>
         </div>
@@ -487,4 +554,13 @@ export function AgentPortal() {
       </div>
     </div>
   );
+}
+
+// ─── Main export ──────────────────────────────────────────────────────────────
+
+export function AgentPortal() {
+  const [agent, setAgent] = useState<Agent | null>(null);
+  return agent
+    ? <AgentDashboard agent={agent} onLogout={() => setAgent(null)} />
+    : <AgentLogin onLogin={setAgent} />;
 }

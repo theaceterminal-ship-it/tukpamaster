@@ -22,6 +22,9 @@ export interface Agent {
   id: string;
   name: string;
   phone: string;
+  whatsapp?: string;
+  gmail?: string;
+  password: string;
   commission: number;
   sheetsAssigned: string[];
   totalSales: number;

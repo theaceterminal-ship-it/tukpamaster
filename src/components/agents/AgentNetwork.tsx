@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   Users, Plus, Phone, Trash2, Package, TrendingUp,
-  Download, ExternalLink, ChevronRight,
+  Download, ExternalLink, ChevronRight, Eye, EyeOff,
 } from 'lucide-react';
 import type { useTambola } from '@/hooks/useTambola';
 import type { Agent } from '@/types';
@@ -31,16 +31,20 @@ const CARD: React.CSSProperties = {
 
 // ─── Add Agent Dialog ────────────────────────────────────────────────────────
 
-function AddAgentDialog({ onAdd }: { onAdd: (name: string, phone: string, commission: number) => void }) {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+function AddAgentDialog({ onAdd }: { onAdd: (name: string, phone: string, commission: number, whatsapp: string, gmail: string, password: string) => void }) {
+  const [open,       setOpen]       = useState(false);
+  const [name,       setName]       = useState('');
+  const [phone,      setPhone]      = useState('');
+  const [whatsapp,   setWhatsapp]   = useState('');
+  const [gmail,      setGmail]      = useState('');
   const [commission, setCommission] = useState('10');
+  const [password,   setPassword]   = useState('');
+  const [showPwd,    setShowPwd]    = useState(false);
 
   const handleSubmit = () => {
-    if (!name.trim() || !phone.trim()) return;
-    onAdd(name.trim(), phone.trim(), Number(commission));
-    setName(''); setPhone(''); setCommission('10');
+    if (!name.trim() || !phone.trim() || !password.trim()) return;
+    onAdd(name.trim(), phone.trim(), Number(commission), whatsapp.trim(), gmail.trim(), password.trim());
+    setName(''); setPhone(''); setWhatsapp(''); setGmail(''); setCommission('10'); setPassword('');
     setOpen(false);
   };
 
@@ -54,21 +58,52 @@ function AddAgentDialog({ onAdd }: { onAdd: (name: string, phone: string, commis
           <DialogHeader><DialogTitle>Add New Agent</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <Label>Name</Label>
+              <Label>Name *</Label>
               <Input value={name} onChange={e => setName(e.target.value)} placeholder="Agent name" className="mt-1" />
             </div>
-            <div>
-              <Label>Phone</Label>
-              <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+91 98765 43210" className="mt-1" />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Phone *</Label>
+                <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+91 98765 43210" className="mt-1" />
+              </div>
+              <div>
+                <Label>WhatsApp</Label>
+                <Input value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder="+91 98765 43210" className="mt-1" />
+              </div>
             </div>
             <div>
-              <Label>Commission (%)</Label>
-              <Input type="number" value={commission} onChange={e => setCommission(e.target.value)} className="mt-1" />
+              <Label>Gmail</Label>
+              <Input type="email" value={gmail} onChange={e => setGmail(e.target.value)} placeholder="agent@gmail.com" className="mt-1" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Commission (%)</Label>
+                <Input type="number" value={commission} onChange={e => setCommission(e.target.value)} className="mt-1" />
+              </div>
+              <div>
+                <Label>Password *</Label>
+                <div className="relative mt-1">
+                  <Input
+                    type={showPwd ? 'text' : 'password'}
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="Portal password"
+                    className="pr-9"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPwd(v => !v)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
           <DialogFooter>
             <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-            <Button onClick={handleSubmit} className="font-bold text-white" style={{ backgroundColor: '#0ea5e9' }}>Add Agent</Button>
+            <Button onClick={handleSubmit} disabled={!name.trim() || !phone.trim() || !password.trim()} className="font-bold text-white" style={{ backgroundColor: '#0ea5e9' }}>Add Agent</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -201,7 +236,7 @@ export function AgentNetwork({ tambola }: AgentNetworkProps) {
           </h2>
           <p className="text-slate-500 mt-1">Manage agents, assign sheet ranges, track sales.</p>
         </div>
-        <AddAgentDialog onAdd={tambola.addAgent} />
+        <AddAgentDialog onAdd={(name, phone, commission, whatsapp, gmail, password) => tambola.addAgent(name, phone, commission, whatsapp, gmail, password)} />
       </div>
 
       {/* ── Summary stats ── */}
@@ -233,7 +268,7 @@ export function AgentNetwork({ tambola }: AgentNetworkProps) {
         <div className="grid grid-cols-2 gap-4 w-full">
           {tambola.agents.map(agent => {
             const stats = agentStats(agent);
-            const agentUrl = `${window.location.origin}/agent/${agent.id}`;
+            const agentUrl = `${window.location.origin}/agent`;
             return (
               <div key={agent.id} className="rounded-2xl p-5" style={CARD}>
                 {/* Top row */}
