@@ -127,14 +127,25 @@ export function Dashboard({ tambola }: DashboardProps) {
   // ── No game ─────────────────────────────────────────────────────────────────
   if (!focusedGame) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <div className="rounded-2xl p-10 text-center max-w-sm w-full" style={CARD}>
-          <Calendar className="w-10 h-10 mx-auto mb-4 text-gray-300" />
-          <p className="text-lg font-black text-gray-900">No game scheduled</p>
-          <p className="text-sm text-gray-400 mt-1 mb-5">Schedule a game to see it here as your dashboard hub</p>
-          <Button onClick={() => setCurrentPage('live-game')} className="w-full font-bold text-white" style={{ backgroundColor: '#e8622a' }}>
-            Schedule a Game
+      <div className="space-y-4 w-full">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-800">Dashboard</h2>
+            <p className="text-slate-500 text-sm mt-0.5">Operator overview for today's game.</p>
+          </div>
+          <Button onClick={() => window.open('/marketplace', '_blank')} variant="outline" className="gap-2 font-semibold">
+            <ExternalLink className="w-4 h-4" /> Marketplace
           </Button>
+        </div>
+        <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
+          <div className="rounded-2xl p-10 text-center max-w-sm w-full" style={CARD}>
+            <Calendar className="w-10 h-10 mx-auto mb-4 text-gray-300" />
+            <p className="text-lg font-black text-gray-900">No game scheduled</p>
+            <p className="text-sm text-gray-400 mt-1 mb-5">Schedule a game to see it here as your dashboard hub</p>
+            <Button onClick={() => setCurrentPage('live-game')} className="w-full font-bold text-white" style={{ backgroundColor: '#e8622a' }}>
+              Schedule a Game
+            </Button>
+          </div>
         </div>
       </div>
     );
