@@ -68,6 +68,8 @@ function dbToScheduledGame(row: Record<string, unknown>): ScheduledGame {
     prizes: (row.prizes as ScheduledGamePrize[]) ?? [],
     hasJackpot: (row.has_jackpot as boolean) ?? false,
     jackpotAmount: (row.jackpot_amount as number) ?? 0,
+    jackpotThingName: (row.jackpot_thing_name as string) ?? undefined,
+    jackpotThingPhoto: (row.jackpot_thing_photo as string) ?? undefined,
     estimatedPrizePool: (row.estimated_prize_pool as number) ?? 0,
     backgroundImage: (row.background_image as string) ?? undefined,
     sessionId: (row.session_id as string) ?? undefined,
@@ -477,6 +479,7 @@ export function useTambola() {
   const scheduleGame = useCallback(async (input: {
     name: string; scheduledAt: string; backgroundImage?: string;
     prizes: ScheduledGamePrize[]; hasJackpot: boolean; jackpotAmount: number;
+    jackpotThingName?: string; jackpotThingPhoto?: string;
     sheetIds: string[]; ticketPrice: number;
   }): Promise<ScheduledGame> => {
     const estimatedPrizePool = input.prizes.reduce((s, p) => s + p.amount, 0) + (input.hasJackpot ? input.jackpotAmount : 0);
@@ -487,6 +490,8 @@ export function useTambola() {
       id: game.id, name: game.name, scheduled_at: game.scheduledAt,
       ticket_price: game.ticketPrice, sheet_ids: game.sheetIds,
       prizes: game.prizes, has_jackpot: game.hasJackpot, jackpot_amount: game.jackpotAmount,
+      jackpot_thing_name: game.jackpotThingName ?? null,
+      jackpot_thing_photo: game.jackpotThingPhoto ?? null,
       estimated_prize_pool: estimatedPrizePool, background_image: game.backgroundImage ?? null,
     });
     if (error) console.error('[scheduleGame] Supabase error:', error);

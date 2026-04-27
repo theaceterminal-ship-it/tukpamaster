@@ -5,8 +5,8 @@ import QRCode from 'qrcode';
 import {
   Search, X, ChevronRight, Dice5, CheckCircle2, QrCode, Copy,
   Ticket, AlertCircle, Calendar, Clock, Star, ShoppingCart,
-  ArrowLeft, Trophy, Zap, Radio, Sparkles, Download, Phone,
-  ClipboardList, Loader2, XCircle,
+  ArrowLeft, Trophy, Radio, Sparkles, Download, Phone,
+  ClipboardList, Loader2, XCircle, MessageCircle, Gift,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -39,24 +39,27 @@ const CHIP_COLORS: Record<string, string> = {
   'third-full-house':  'bg-yellow-500/20 text-yellow-200 border border-yellow-400/30',
 };
 
-function formatCountdown(iso: string): string {
+function calcCountdown(iso: string): string {
   const diff = new Date(iso).getTime() - Date.now();
-  if (diff <= 0) return 'Starting now';
+  if (diff <= 0) return 'Starting now!';
   const d = Math.floor(diff / 86400000);
   const h = Math.floor((diff % 86400000) / 3600000);
   const m = Math.floor((diff % 3600000) / 60000);
-  if (d > 0) return `${d}d ${h}h away`;
-  if (h > 0) return `${h}h ${m}m away`;
-  return `${m}m away`;
+  const s = Math.floor((diff % 60000) / 1000);
+  if (d > 0) return `${d}d ${h}h ${m}m`;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  return `${m}m ${s}s`;
 }
 
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+function useLiveCountdown(iso: string): string {
+  const [text, setText] = useState(() => calcCountdown(iso));
+  useEffect(() => {
+    const id = setInterval(() => setText(calcCountdown(iso)), 1000);
+    return () => clearInterval(id);
+  }, [iso]);
+  return text;
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-}
 
 // ─── UPI QR ──────────────────────────────────────────────────────────────────
 
@@ -165,121 +168,321 @@ function TicketCard({ sheet, price, selected, onToggle }: {
   );
 }
 
+// ─── Live-countdown wrapper ───────────────────────────────────────────────────
+
+function LiveCountdownBadge({ iso }: { iso: string }) {
+  const text = useLiveCountdown(iso);
+  const soon  = new Date(iso).getTime() - Date.now() < 3600000;
+  return (
+    <span className={`inline-flex items-center gap-1.5 text-xs font-black px-3 py-1.5 rounded-lg border ${
+      soon
+        ? 'bg-red-500/20 border-red-400/50 text-red-200 animate-pulse'
+        : 'bg-white/15 border-white/30 text-white'
+    }`}>
+      <Clock className="w-3 h-3" /> {text}
+    </span>
+  );
+}
+
 // ─── Trade-Fair Hero ──────────────────────────────────────────────────────────
 
-function TradeFairHero({ name, date, time, prizePool, availableCount, price, countdown, isLive, calledCount, prizes, hasJackpot, jackpotAmount, onCTA }: {
-  name: string; date?: string; time?: string; prizePool: number;
-  availableCount: number; price: number; countdown?: string;
+function TradeFairHero({
+  name, scheduledAt, prizePool, availableCount, totalSheets, price,
+  isLive, calledCount, prizes, hasJackpot, jackpotAmount,
+  jackpotThingName, jackpotThingPhoto, backgroundImage, whatsappNumber, onCTA,
+}: {
+  name: string; scheduledAt?: string; prizePool: number;
+  availableCount: number; totalSheets?: number; price: number;
   isLive?: boolean; calledCount?: number;
-  prizes?: { label: string; amount: number; type: string }[];
+  prizes?: { label: string; amount: number; type: string; thingName?: string; thingPhoto?: string }[];
   hasJackpot?: boolean; jackpotAmount?: number;
+  jackpotThingName?: string; jackpotThingPhoto?: string;
+  backgroundImage?: string; whatsappNumber?: string;
   onCTA: () => void;
 }) {
+  const hasBg = !!backgroundImage;
+  const fullHouse = prizes?.find(p => p.type === 'full-house');
+  const otherPrizes = prizes?.filter(p => p.type !== 'full-house') ?? [];
+  const hasPhysicalJackpot = hasJackpot && !!jackpotThingName;
+  const hasPhysicalFH = !!fullHouse?.thingName;
+
   return (
     <div
       className="relative overflow-hidden rounded-3xl cursor-pointer group select-none"
       onClick={onCTA}
-      style={{ background: 'linear-gradient(180deg, #e0f2fe 0%, #38bdf8 40%, #0284c7 100%)', minHeight: 380 }}
+      style={hasBg
+        ? { backgroundImage: `url(${backgroundImage})`, backgroundSize: 'cover', backgroundPosition: 'center', minHeight: 440 }
+        : { background: 'linear-gradient(180deg, #e0f2fe 0%, #38bdf8 40%, #0284c7 100%)', minHeight: 440 }
+      }
     >
-      {/* Cloud blobs */}
-      <div className="absolute top-0 inset-x-0 pointer-events-none">
-        <div className="absolute top-3 left-8 w-28 h-14 bg-white/60 rounded-full blur-2xl" />
-        <div className="absolute top-1 right-16 w-36 h-16 bg-white/50 rounded-full blur-2xl" />
-        <div className="absolute top-6 left-1/3 w-24 h-10 bg-white/40 rounded-full blur-xl" />
-      </div>
+      {/* Overlay */}
+      {hasBg
+        ? <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/50 to-black/75" />
+        : (
+          <div className="absolute top-0 inset-x-0 pointer-events-none">
+            <div className="absolute top-3 left-8 w-28 h-14 bg-white/60 rounded-full blur-2xl" />
+            <div className="absolute top-1 right-16 w-36 h-16 bg-white/50 rounded-full blur-2xl" />
+            <div className="absolute top-6 left-1/3 w-24 h-10 bg-white/40 rounded-full blur-xl" />
+          </div>
+        )
+      }
 
-      {/* Jackpot badge */}
-      {hasJackpot && (
-        <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-yellow-400 rounded-full px-3 py-1 z-10 shadow-lg">
-          <Star className="w-3.5 h-3.5 text-yellow-900 fill-yellow-900" />
-          <span className="text-yellow-900 text-xs font-black uppercase tracking-wide">Jackpot ₹{jackpotAmount?.toLocaleString()}</span>
-        </div>
-      )}
+      <div className="relative px-5 sm:px-8 pt-6 pb-6 flex flex-col gap-4">
 
-      <div className="relative px-6 sm:px-10 pt-8 pb-8 flex flex-col gap-4">
-
-        {/* Status badge */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {isLive ? (
-            <span className="flex items-center gap-1.5 bg-red-500 text-white text-xs font-black px-3 py-1.5 rounded-md shadow-md uppercase tracking-widest">
-              <Radio className="w-3 h-3 animate-pulse" /> LIVE NOW
-            </span>
-          ) : countdown ? (
-            <span className="flex items-center gap-1.5 bg-white/20 backdrop-blur border border-white/40 text-white text-xs font-bold px-3 py-1.5 rounded-md">
-              <Zap className="w-3 h-3 text-yellow-300" /> {countdown}
-            </span>
-          ) : null}
-          {isLive && calledCount !== undefined && (
-            <span className="text-sky-200 text-xs font-medium">{calledCount}/90 numbers called</span>
+        {/* Top row: status + jackpot badge */}
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {isLive ? (
+              <span className="flex items-center gap-1.5 bg-red-500 text-white text-xs font-black px-3 py-1.5 rounded-lg shadow-md uppercase tracking-widest">
+                <Radio className="w-3 h-3 animate-pulse" /> LIVE NOW
+              </span>
+            ) : scheduledAt ? (
+              <LiveCountdownBadge iso={scheduledAt} />
+            ) : null}
+            {isLive && calledCount !== undefined && (
+              <span className="text-sky-200 text-xs font-medium bg-black/20 px-2 py-1 rounded-md">{calledCount}/90 called</span>
+            )}
+          </div>
+          {hasJackpot && (
+            <div className="flex items-center gap-1.5 bg-yellow-400 rounded-full px-3 py-1 shadow-lg shrink-0">
+              <Star className="w-3.5 h-3.5 text-yellow-900 fill-yellow-900" />
+              <span className="text-yellow-900 text-xs font-black uppercase tracking-wide">
+                {hasPhysicalJackpot ? jackpotThingName : `Jackpot ₹${jackpotAmount?.toLocaleString()}`}
+              </span>
+            </div>
           )}
         </div>
 
-        {/* Game name — huge */}
+        {/* Game name */}
         <div>
-          <p className="text-sky-200 text-xs font-bold uppercase tracking-[0.25em] mb-1">Tonight's Game</p>
-          <h1 className="text-5xl sm:text-7xl font-black text-white leading-[0.9] uppercase"
-              style={{ textShadow: '3px 4px 0 rgba(0,0,0,0.18), 0 0 40px rgba(0,0,0,0.1)' }}>
+          {scheduledAt && !isLive && (
+            <p className="text-white/60 text-xs font-bold uppercase tracking-[0.2em] mb-1">
+              {new Date(scheduledAt).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
+              {' · '}
+              {new Date(scheduledAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+            </p>
+          )}
+          <h1
+            className="text-4xl sm:text-6xl lg:text-7xl font-black text-white uppercase leading-[0.9]"
+            style={{ textShadow: '2px 3px 0 rgba(0,0,0,0.35), 0 0 40px rgba(0,0,0,0.2)' }}
+          >
             {name}
           </h1>
         </div>
 
-        {/* Prize pool banner */}
-        <div className="flex items-stretch rounded-xl overflow-hidden shadow-xl w-fit">
-          <div className="bg-red-600 px-4 py-3 flex items-center">
-            <p className="text-white text-xs font-black uppercase tracking-widest rotate-0">Prize<br />Pool</p>
-          </div>
-          <div className="bg-orange-500 px-6 py-3 flex items-center">
-            <p className="text-white text-4xl font-black tabular-nums" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
-              ₹{prizePool.toLocaleString()}
-            </p>
-          </div>
+        {/* Hero prize — Full House or total pool */}
+        <div className="flex flex-wrap items-start gap-4">
+          {fullHouse ? (
+            <div className="flex items-stretch rounded-2xl overflow-hidden shadow-2xl">
+              <div className="bg-emerald-700 px-4 py-3 flex flex-col justify-center">
+                <p className="text-emerald-200 text-[10px] font-black uppercase tracking-widest leading-tight">Full<br />House</p>
+              </div>
+              <div className="bg-emerald-500 px-5 py-3 flex flex-col justify-center">
+                {hasPhysicalFH ? (
+                  <div className="flex items-center gap-2">
+                    {fullHouse.thingPhoto && (
+                      <img src={fullHouse.thingPhoto} alt={fullHouse.thingName} className="w-10 h-10 rounded-lg object-cover border-2 border-emerald-300 shrink-0" />
+                    )}
+                    <div>
+                      <p className="text-[10px] text-emerald-200 uppercase tracking-widest font-bold">Win a</p>
+                      <p className="text-xl font-black text-white leading-tight">{fullHouse.thingName}</p>
+                      <p className="text-emerald-200 text-xs">+ ₹{fullHouse.amount.toLocaleString()} cash</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-white text-4xl font-black tabular-nums" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
+                    ₹{fullHouse.amount.toLocaleString()}
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-stretch rounded-2xl overflow-hidden shadow-2xl">
+              <div className="bg-red-700 px-4 py-3 flex items-center"><p className="text-white text-[10px] font-black uppercase tracking-widest">Prize<br />Pool</p></div>
+              <div className="bg-red-500 px-5 py-3 flex items-center">
+                <p className="text-white text-4xl font-black tabular-nums">₹{prizePool.toLocaleString()}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Jackpot physical prize photo */}
+          {hasPhysicalJackpot && jackpotThingPhoto && (
+            <div className="flex items-center gap-3 bg-yellow-400/15 border border-yellow-400/40 rounded-2xl p-3">
+              <img src={jackpotThingPhoto} alt={jackpotThingName} className="w-14 h-14 rounded-xl object-cover border-2 border-yellow-400 shrink-0" />
+              <div>
+                <p className="text-yellow-300 text-[10px] uppercase tracking-widest font-bold">⭐ Jackpot Prize</p>
+                <p className="text-white font-black text-base leading-tight">{jackpotThingName}</p>
+                {jackpotAmount ? <p className="text-yellow-200 text-xs">₹{jackpotAmount.toLocaleString()} cash value</p> : null}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Prize chips */}
-        {prizes && prizes.length > 0 && (
+        {/* Other prize chips */}
+        {otherPrizes.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {prizes.slice(0, 5).map(p => (
-              <span key={p.type} className={`text-xs font-semibold px-2.5 py-1 rounded-full ${CHIP_COLORS[p.type] ?? 'bg-white/10 text-white/80 border border-white/20'}`}>
-                {p.label} ₹{p.amount.toLocaleString()}
+            {otherPrizes.map(p => (
+              <span key={p.type} className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ${CHIP_COLORS[p.type] ?? 'bg-white/10 text-white/80 border border-white/20'}`}>
+                {p.thingName ? <Gift className="w-3 h-3" /> : null}
+                {p.label}{p.thingName ? `: ${p.thingName}` : ` ₹${p.amount.toLocaleString()}`}
               </span>
             ))}
+            {hasJackpot && !hasPhysicalJackpot && (
+              <span className="text-xs font-black px-2.5 py-1 rounded-full bg-yellow-400/20 text-yellow-200 border border-yellow-400/40">
+                ⭐ Jackpot ₹{jackpotAmount?.toLocaleString()}
+              </span>
+            )}
           </div>
         )}
 
-        {/* Info row */}
-        <div className="flex flex-wrap gap-3">
-          {date && (
-            <div className="bg-black/20 backdrop-blur-sm border border-white/20 text-white rounded-xl px-4 py-2.5 flex items-center gap-2.5">
-              <Calendar className="w-4 h-4 text-amber-300 shrink-0" />
-              <div>
-                <p className="text-[10px] text-white/50 uppercase tracking-widest">Date</p>
-                <p className="text-sm font-black">{date}</p>
-              </div>
-            </div>
-          )}
-          {time && (
-            <div className="bg-black/20 backdrop-blur-sm border border-white/20 text-white rounded-xl px-4 py-2.5 flex items-center gap-2.5">
-              <Clock className="w-4 h-4 text-amber-300 shrink-0" />
-              <div>
-                <p className="text-[10px] text-white/50 uppercase tracking-widest">Time</p>
-                <p className="text-sm font-black">{time}</p>
-              </div>
-            </div>
-          )}
-          <div className="bg-black/20 backdrop-blur-sm border border-white/20 text-white rounded-xl px-4 py-2.5 flex items-center gap-2.5">
-            <Ticket className="w-4 h-4 text-amber-300 shrink-0" />
+        {/* Info strip */}
+        <div className="flex flex-wrap gap-2">
+          <div className="bg-black/25 backdrop-blur-sm border border-white/20 text-white rounded-xl px-3 py-2 flex items-center gap-2">
+            <Ticket className="w-3.5 h-3.5 text-amber-300 shrink-0" />
             <div>
-              <p className="text-[10px] text-white/50 uppercase tracking-widest">Available</p>
-              <p className="text-sm font-black">{availableCount} @ ₹{price}</p>
+              <p className="text-[9px] text-white/50 uppercase tracking-widest leading-none">Available</p>
+              <p className="text-sm font-black leading-tight">{availableCount}{totalSheets ? `/${totalSheets}` : ''} sheets</p>
             </div>
           </div>
+          <div className="bg-black/25 backdrop-blur-sm border border-white/20 text-white rounded-xl px-3 py-2 flex items-center gap-2">
+            <Trophy className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+            <div>
+              <p className="text-[9px] text-white/50 uppercase tracking-widest leading-none">Price</p>
+              <p className="text-sm font-black leading-tight">₹{price}/sheet</p>
+            </div>
+          </div>
+          {fullHouse && (
+            <div className="bg-black/25 backdrop-blur-sm border border-white/20 text-white rounded-xl px-3 py-2 flex items-center gap-2">
+              <Star className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+              <div>
+                <p className="text-[9px] text-white/50 uppercase tracking-widest leading-none">Total Pool</p>
+                <p className="text-sm font-black leading-tight">₹{prizePool.toLocaleString()}</p>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* CTA */}
-        <div>
-          <button className="flex items-center gap-2 bg-amber-400 group-hover:bg-amber-300 transition-colors text-slate-900 font-black px-8 py-3.5 rounded-2xl text-base shadow-xl shadow-amber-500/30 mt-1">
+        {/* CTA + WhatsApp */}
+        <div className="flex flex-wrap gap-3 items-center mt-1">
+          <button
+            className="flex items-center gap-2 bg-amber-400 group-hover:bg-amber-300 active:scale-95 transition-all text-slate-900 font-black px-7 py-3.5 rounded-2xl text-base shadow-xl shadow-amber-500/30"
+            onClick={e => { e.stopPropagation(); onCTA(); }}
+          >
             Get Your Tickets <ChevronRight className="w-5 h-5" />
           </button>
+          {whatsappNumber && (
+            <a
+              href={`https://wa.me/${whatsappNumber}`}
+              target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-2 bg-green-500 hover:bg-green-400 active:scale-95 transition-all text-white font-bold px-5 py-3.5 rounded-2xl text-sm shadow-lg"
+              onClick={e => e.stopPropagation()}
+            >
+              <MessageCircle className="w-4 h-4" /> Support
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Upcoming Game Card ───────────────────────────────────────────────────────
+
+function UpcomingGameCard({ game, whatsapp, onPick }: { game: ScheduledGame; whatsapp?: string; onPick: () => void }) {
+  const countdown = useLiveCountdown(game.scheduledAt);
+  const fh = game.prizes.find(p => p.type === 'full-house');
+  const hasBg = !!game.backgroundImage;
+  const soon = new Date(game.scheduledAt).getTime() - Date.now() < 3600000;
+
+  return (
+    <div
+      onClick={onPick}
+      className="relative overflow-hidden rounded-2xl cursor-pointer group active:scale-[0.98] transition-all shadow-lg hover:shadow-xl"
+      style={hasBg
+        ? { backgroundImage: `url(${game.backgroundImage})`, backgroundSize: 'cover', backgroundPosition: 'center', minHeight: 220 }
+        : { background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #0f172a 100%)', minHeight: 220 }
+      }
+    >
+      {/* Overlay */}
+      {hasBg
+        ? <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/40 to-black/80" />
+        : <div className="absolute -top-10 -left-10 w-48 h-48 rounded-full bg-amber-500/20 blur-3xl pointer-events-none" />
+      }
+
+      <div className="relative p-4 flex flex-col h-full gap-3" style={{ minHeight: 220 }}>
+        {/* Top row */}
+        <div className="flex items-start justify-between gap-2">
+          <span className={`inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-lg ${
+            soon ? 'bg-red-500/30 text-red-200 border border-red-400/40 animate-pulse' : 'bg-white/10 text-white/80 border border-white/20'
+          }`}>
+            <Clock className="w-2.5 h-2.5" /> {countdown}
+          </span>
+          {game.hasJackpot && (
+            <span className="flex items-center gap-1 bg-yellow-400/20 border border-yellow-400/40 text-yellow-200 text-[10px] font-black px-2 py-1 rounded-full shrink-0">
+              ⭐ {game.jackpotThingName ?? `₹${game.jackpotAmount.toLocaleString()}`}
+            </span>
+          )}
+        </div>
+
+        {/* Date line */}
+        <p className="text-white/50 text-[10px] font-semibold uppercase tracking-wider">
+          {new Date(game.scheduledAt).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+          {' · '}
+          {new Date(game.scheduledAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+        </p>
+
+        {/* Game name */}
+        <h3 className="text-2xl font-black text-white uppercase leading-tight"
+            style={{ textShadow: '1px 2px 0 rgba(0,0,0,0.4)' }}>
+          {game.name}
+        </h3>
+
+        {/* Full house prize */}
+        {fh && (
+          <div className="flex items-center gap-2">
+            {fh.thingPhoto
+              ? <img src={fh.thingPhoto} alt={fh.thingName} className="w-9 h-9 rounded-lg object-cover border-2 border-emerald-400 shrink-0" />
+              : null
+            }
+            <div>
+              <p className="text-emerald-400 text-[10px] uppercase tracking-widest font-bold">Full House</p>
+              <p className="text-white font-black text-lg leading-none">
+                {fh.thingName ? fh.thingName : `₹${fh.amount.toLocaleString()}`}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Prize chips */}
+        <div className="flex flex-wrap gap-1.5 mt-auto">
+          {game.prizes.filter(p => p.type !== 'full-house').slice(0, 3).map(p => (
+            <span key={p.type} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${CHIP_COLORS[p.type] ?? 'bg-white/10 text-white/70 border border-white/20'}`}>
+              {p.label} {p.thingName ? `(${p.thingName})` : `₹${p.amount.toLocaleString()}`}
+            </span>
+          ))}
+        </div>
+
+        {/* Bottom row */}
+        <div className="flex items-center justify-between pt-2 border-t border-white/10">
+          <div className="flex items-center gap-3">
+            <div>
+              <p className="text-white/40 text-[9px] uppercase tracking-widest">Sheets</p>
+              <p className="text-white font-bold text-sm">{game.sheetIds.length} @ ₹{game.ticketPrice}</p>
+            </div>
+            {whatsapp && (
+              <a
+                href={`https://wa.me/${whatsapp}`}
+                target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1 bg-green-500/20 border border-green-500/40 text-green-300 text-[10px] font-bold px-2.5 py-1.5 rounded-lg"
+                onClick={e => e.stopPropagation()}
+              >
+                <MessageCircle className="w-3 h-3" /> Help
+              </a>
+            )}
+          </div>
+          <span className="bg-amber-500 group-hover:bg-amber-400 transition-colors text-slate-900 text-xs font-black px-3 py-2 rounded-xl flex items-center gap-1">
+            Buy <ChevronRight className="w-3 h-3" />
+          </span>
         </div>
       </div>
     </div>
@@ -471,27 +674,32 @@ export function Marketplace() {
             name={heroGame.name}
             prizePool={heroGame.totalPrizePool}
             availableCount={availableSheets.length}
+            totalSheets={sheets.length}
             price={price}
             isLive={heroGame.status === 'active'}
             calledCount={heroGame.calledNumbers.length}
-            hasJackpot={heroGame.dividends.some(d => d.prize >= 5000)}
+            hasJackpot={heroGame.dividends.some(d => d.name === 'Jackpot')}
             jackpotAmount={heroGame.dividends.find(d => d.name === 'Jackpot')?.prize}
             prizes={heroGame.dividends.map(d => ({ label: d.name, amount: d.prize, type: d.type }))}
+            whatsappNumber={upiSettings.whatsappNumber}
             onCTA={() => openPicker()}
           />
 
         ) : todayScheduled.length > 0 ? (
           <TradeFairHero
             name={todayScheduled[0].name}
-            date={formatDate(todayScheduled[0].scheduledAt)}
-            time={formatTime(todayScheduled[0].scheduledAt)}
+            scheduledAt={todayScheduled[0].scheduledAt}
             prizePool={todayScheduled[0].estimatedPrizePool}
             availableCount={availableSheets.filter(s => todayScheduled[0].sheetIds.includes(s.id)).length}
+            totalSheets={todayScheduled[0].sheetIds.length}
             price={todayScheduled[0].ticketPrice}
-            countdown={formatCountdown(todayScheduled[0].scheduledAt)}
             hasJackpot={todayScheduled[0].hasJackpot}
             jackpotAmount={todayScheduled[0].jackpotAmount}
-            prizes={todayScheduled[0].prizes.map(p => ({ label: p.label, amount: p.amount, type: p.type }))}
+            jackpotThingName={todayScheduled[0].jackpotThingName}
+            jackpotThingPhoto={todayScheduled[0].jackpotThingPhoto}
+            prizes={todayScheduled[0].prizes}
+            backgroundImage={todayScheduled[0].backgroundImage}
+            whatsappNumber={upiSettings.whatsappNumber}
             onCTA={() => openPicker(todayScheduled[0])}
           />
 
@@ -586,36 +794,10 @@ export function Marketplace() {
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-bold text-slate-800">Upcoming Games</h2>
-              <span className="bg-slate-100 text-slate-500 text-xs font-semibold px-2 py-0.5 rounded-full">{upcoming.length}</span>
+              <span className="bg-sky-100 text-sky-600 text-xs font-semibold px-2 py-0.5 rounded-full">{upcoming.length}</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {upcoming.map(g => (
-                <div
-                  key={g.id}
-                  onClick={() => openPicker(g)}
-                  className="relative overflow-hidden rounded-2xl cursor-pointer group"
-                  style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', minHeight: 160 }}
-                >
-                  <div className="absolute -top-8 -left-8 w-32 h-32 rounded-full bg-amber-500/15 blur-2xl" />
-                  <div className="relative p-5 flex flex-col justify-between h-full gap-3">
-                    <div>
-                      <span className="flex items-center gap-1 text-amber-300 text-xs font-bold">
-                        <Calendar className="w-3 h-3" /> {formatDate(g.scheduledAt)} · {formatTime(g.scheduledAt)}
-                      </span>
-                      <h3 className="text-xl font-black text-white uppercase mt-1">{g.name}</h3>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-slate-400 text-xs">Prize Pool</p>
-                        <p className="text-amber-300 font-black text-lg">₹{g.estimatedPrizePool.toLocaleString()}</p>
-                      </div>
-                      <span className="bg-amber-500 group-hover:bg-amber-400 transition-colors text-slate-900 text-xs font-black px-3 py-1.5 rounded-xl flex items-center gap-1">
-                        Buy <ChevronRight className="w-3 h-3" />
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+              {upcoming.map(g => <UpcomingGameCard key={g.id} game={g} whatsapp={upiSettings.whatsappNumber} onPick={() => openPicker(g)} />)}
             </div>
           </div>
         )}

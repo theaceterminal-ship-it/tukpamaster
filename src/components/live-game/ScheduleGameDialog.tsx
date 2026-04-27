@@ -58,9 +58,11 @@ interface ScheduleGameDialogProps {
     name: string;
     scheduledAt: string;
     backgroundImage?: string;
-    prizes: { type: string; label: string; amount: number }[];
+    prizes: { type: string; label: string; amount: number; thingName?: string; thingPhoto?: string }[];
     hasJackpot: boolean;
     jackpotAmount: number;
+    jackpotThingName?: string;
+    jackpotThingPhoto?: string;
     sheetIds: string[];
     ticketPrice: number;
   }) => void;
@@ -92,13 +94,27 @@ export function ScheduleGameDialog({
   const [hasJackpot, setHasJackpot] = useState(false);
   const [jackpotAmount, setJackpotAmount] = useState(10000);
 
+  // Physical prizes
+  const prizePhotoRef = useRef<HTMLInputElement>(null);
+  const jackpotPhotoRef = useRef<HTMLInputElement>(null);
+  const [fullHouseThingName, setFullHouseThingName] = useState('');
+  const [fullHouseThingPhoto, setFullHouseThingPhoto] = useState('');
+  const [jackpotThingName, setJackpotThingName] = useState('');
+  const [jackpotThingPhoto, setJackpotThingPhoto] = useState('');
+  const [prizePhotoLoading, setPrizePhotoLoading] = useState(false);
+  const [jackpotPhotoLoading, setJackpotPhotoLoading] = useState(false);
+
   // ── Computed ──────────────────────────────────────────────────────────────
 
   const activePrizes = useMemo(() =>
     ALL_PRIZE_TYPES
       .filter(t => activeTypes.has(t.type))
-      .map(t => ({ type: t.type, label: t.label, amount: prizeAmounts[t.type] ?? t.default })),
-    [activeTypes, prizeAmounts]
+      .map(t => ({
+        type: t.type, label: t.label, amount: prizeAmounts[t.type] ?? t.default,
+        thingName:  t.type === 'full-house' && fullHouseThingName  ? fullHouseThingName  : undefined,
+        thingPhoto: t.type === 'full-house' && fullHouseThingPhoto ? fullHouseThingPhoto : undefined,
+      })),
+    [activeTypes, prizeAmounts, fullHouseThingName, fullHouseThingPhoto]
   );
 
   const totalPrize = useMemo(() =>
@@ -140,6 +156,24 @@ export function ScheduleGameDialog({
 
   const clearImage = () => { setBgImage(''); setBgUrlDraft(''); };
 
+  const handlePrizePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    setPrizePhotoLoading(true);
+    const compressed = await compressImage(file);
+    setFullHouseThingPhoto(compressed);
+    setPrizePhotoLoading(false);
+    e.target.value = '';
+  };
+
+  const handleJackpotPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    setJackpotPhotoLoading(true);
+    const compressed = await compressImage(file);
+    setJackpotThingPhoto(compressed);
+    setJackpotPhotoLoading(false);
+    e.target.value = '';
+  };
+
   const handleSubmit = () => {
     if (!canSubmit) return;
     onSchedule({
@@ -149,6 +183,8 @@ export function ScheduleGameDialog({
       prizes: activePrizes,
       hasJackpot,
       jackpotAmount: hasJackpot ? jackpotAmount : 0,
+      jackpotThingName: hasJackpot && jackpotThingName ? jackpotThingName : undefined,
+      jackpotThingPhoto: hasJackpot && jackpotThingPhoto ? jackpotThingPhoto : undefined,
       sheetIds: [],
       ticketPrice: parseInt(ticketPrice) || defaultTicketPrice || 50,
     });
@@ -158,6 +194,8 @@ export function ScheduleGameDialog({
     setActiveTypes(new Set(['early-five', 'top-line', 'middle-line', 'bottom-line', 'full-house']));
     setPrizeAmounts(Object.fromEntries(ALL_PRIZE_TYPES.map(t => [t.type, t.default])));
     setHasJackpot(false); setJackpotAmount(10000);
+    setFullHouseThingName(''); setFullHouseThingPhoto('');
+    setJackpotThingName(''); setJackpotThingPhoto('');
     onClose();
   };
 
@@ -314,6 +352,40 @@ export function ScheduleGameDialog({
               })}
             </div>
 
+            {/* Full House physical prize option */}
+            {activeTypes.has('full-house') && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 space-y-2">
+                <p className="text-xs font-bold text-emerald-700 uppercase tracking-wide flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                  Full House — Physical Prize (optional)
+                </p>
+                <div className="flex gap-2 items-start">
+                  <input
+                    type="text"
+                    value={fullHouseThingName}
+                    onChange={e => setFullHouseThingName(e.target.value)}
+                    placeholder="e.g. iPhone 16, Royal Enfield…"
+                    className="flex-1 border border-emerald-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white"
+                  />
+                  <input ref={prizePhotoRef} type="file" accept="image/*" className="hidden" onChange={handlePrizePhotoUpload} />
+                  {fullHouseThingPhoto
+                    ? <div className="relative shrink-0">
+                        <img src={fullHouseThingPhoto} alt="prize" className="w-10 h-10 rounded-lg object-cover border-2 border-emerald-400" />
+                        <button onClick={() => setFullHouseThingPhoto('')} className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px]">×</button>
+                      </div>
+                    : <button
+                        type="button"
+                        onClick={() => prizePhotoRef.current?.click()}
+                        disabled={prizePhotoLoading}
+                        className="shrink-0 text-xs text-emerald-600 border border-emerald-300 rounded-lg px-2.5 py-1.5 hover:bg-emerald-100 disabled:opacity-50"
+                      >
+                        {prizePhotoLoading ? '…' : '+ Photo'}
+                      </button>
+                  }
+                </div>
+              </div>
+            )}
+
             {/* Jackpot */}
             <div
               className={`rounded-xl border-2 p-4 cursor-pointer transition-all ${
@@ -346,6 +418,40 @@ export function ScheduleGameDialog({
                 </div>
               </div>
             </div>
+
+            {/* Jackpot physical prize option */}
+            {hasJackpot && (
+              <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-3 space-y-2">
+                <p className="text-xs font-bold text-yellow-700 uppercase tracking-wide flex items-center gap-1.5">
+                  <Star className="w-3 h-3 text-yellow-500 fill-yellow-400" />
+                  Jackpot — Physical Prize (optional)
+                </p>
+                <div className="flex gap-2 items-start">
+                  <input
+                    type="text"
+                    value={jackpotThingName}
+                    onChange={e => setJackpotThingName(e.target.value)}
+                    placeholder="e.g. Royal Enfield Bullet, Samsung TV…"
+                    className="flex-1 border border-yellow-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 bg-white"
+                  />
+                  <input ref={jackpotPhotoRef} type="file" accept="image/*" className="hidden" onChange={handleJackpotPhotoUpload} />
+                  {jackpotThingPhoto
+                    ? <div className="relative shrink-0">
+                        <img src={jackpotThingPhoto} alt="jackpot" className="w-10 h-10 rounded-lg object-cover border-2 border-yellow-400" />
+                        <button onClick={() => setJackpotThingPhoto('')} className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px]">×</button>
+                      </div>
+                    : <button
+                        type="button"
+                        onClick={() => jackpotPhotoRef.current?.click()}
+                        disabled={jackpotPhotoLoading}
+                        className="shrink-0 text-xs text-yellow-700 border border-yellow-300 rounded-lg px-2.5 py-1.5 hover:bg-yellow-100 disabled:opacity-50"
+                      >
+                        {jackpotPhotoLoading ? '…' : '+ Photo'}
+                      </button>
+                  }
+                </div>
+              </div>
+            )}
 
             {/* Total */}
             <div className="flex items-center justify-between py-3 px-4 rounded-xl" style={{ backgroundColor: 'rgba(232,98,42,0.08)', border: '1px solid rgba(232,98,42,0.2)' }}>

@@ -53,6 +53,7 @@ export interface Order {
 export interface UpiSettings {
   upiId: string;
   merchantName: string;
+  whatsappNumber?: string;
 }
 
 export type DividendType =
@@ -112,6 +113,8 @@ export interface ScheduledGamePrize {
   type: string;
   label: string;
   amount: number;
+  thingName?: string;
+  thingPhoto?: string;
 }
 
 export interface ScheduledGame {
@@ -122,6 +125,8 @@ export interface ScheduledGame {
   prizes: ScheduledGamePrize[];
   hasJackpot: boolean;
   jackpotAmount: number;
+  jackpotThingName?: string;
+  jackpotThingPhoto?: string;
   sheetIds: string[];
   ticketPrice: number;
   estimatedPrizePool: number;

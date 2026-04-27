@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   ClipboardList, CheckCircle2, XCircle, Download,
-  Phone, Clock, ChevronDown, ChevronUp, Wallet, Package,
+  Phone, Clock, ChevronDown, ChevronUp, Wallet, Package, MessageCircle,
 } from 'lucide-react';
 import type { useTambola } from '@/hooks/useTambola';
 import type { Order } from '@/types';
@@ -221,6 +221,15 @@ export function PendingPayments({ tambola }: PendingPaymentsProps) {
                 value={tambola.upiSettings.merchantName}
                 onChange={e => tambola.setUpiSettings({ ...tambola.upiSettings, merchantName: e.target.value })}
                 placeholder="Your Name / Business"
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <label className="text-xs text-slate-400 block mb-1 flex items-center gap-1"><MessageCircle className="w-3 h-3 text-green-500" /> WhatsApp Number</label>
+              <input
+                className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-400"
+                value={tambola.upiSettings.whatsappNumber ?? ''}
+                onChange={e => tambola.setUpiSettings({ ...tambola.upiSettings, whatsappNumber: e.target.value.replace(/\D/g, '') })}
+                placeholder="91XXXXXXXXXX"
               />
             </div>
           </div>
