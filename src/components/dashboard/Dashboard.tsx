@@ -71,7 +71,7 @@ export function Dashboard({ tambola }: DashboardProps) {
       .filter(g => new Date(g.scheduledAt) > now)
       .sort((a, b) => +new Date(a.scheduledAt) - +new Date(b.scheduledAt));
     if (upcoming.length) return upcoming[0];
-    return [...activeScheduledGames].sort((a, b) => +new Date(b.scheduledAt) - +new Date(a.scheduledAt))[0] ?? null;
+    return null;
   }, [activeScheduledGames, currentGame]);
 
   const isLive = !!(currentGame && focusedGame?.sessionId === currentGame.id && currentGame.status === 'active');
