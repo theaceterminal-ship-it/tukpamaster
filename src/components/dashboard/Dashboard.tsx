@@ -154,6 +154,21 @@ export function Dashboard({ tambola }: DashboardProps) {
   return (
     <div className="space-y-4 w-full">
 
+      {/* ── Page header ─────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800">Dashboard</h2>
+          <p className="text-slate-500 text-sm mt-0.5">Operator overview for today's game.</p>
+        </div>
+        <Button
+          onClick={() => window.open('/marketplace', '_blank')}
+          variant="outline"
+          className="gap-2 font-semibold"
+        >
+          <ExternalLink className="w-4 h-4" /> Marketplace
+        </Button>
+      </div>
+
       {/* ── HERO: Full-width game banner ─────────────────────────────────────── */}
       <div
         className="relative w-full overflow-hidden rounded-2xl"
@@ -242,12 +257,6 @@ export function Dashboard({ tambola }: DashboardProps) {
                 <Radio className="w-4 h-4" /> Launch Game
               </Button>
             )}
-            <button
-              onClick={() => window.open('/marketplace', '_blank')}
-              className="w-full mt-2 text-xs font-semibold bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg"
-            >
-              <ExternalLink className="w-3 h-3" /> Marketplace
-            </button>
             <button
               onClick={() => setCurrentPage('live-game')}
               className="w-full mt-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors flex items-center justify-center gap-1"
