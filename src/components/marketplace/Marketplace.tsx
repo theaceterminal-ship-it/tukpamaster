@@ -615,25 +615,25 @@ export function Marketplace() {
     setStep('orders');
   };
 
-  const myOrders = useMemo(() => {
-    if (!hasSearched || !lookupPhone.trim() || !lookupGameId) return [];
-    return tambola.orders.filter(o =>
-      o.phone.replace(/\D/g, '') === lookupPhone.trim().replace(/\D/g, '') &&
-      o.sheetIds.some(sid => {
-        const sheet = tambola.sheets.find(s => s.id === sid);
-        return sheet?.scheduledGameId === lookupGameId;
-      })
-    );
-  }, [hasSearched, lookupPhone, lookupGameId, tambola.orders, tambola.sheets]);
-
   const lookupGame = useMemo(
     () => tambola.scheduledGames.find(g => g.id === lookupGameId) ?? null,
-    [lookupGameId, tambola.scheduledGames]
+    [lookupGameId, tambola.scheduledGames],
   );
-  const lookupGameEnded = useMemo(() => {
-    if (!lookupGame?.sessionId) return false;
-    return tambola.gameHistory.some(h => h.id === lookupGame.sessionId);
-  }, [lookupGame, tambola.gameHistory]);
+
+  const lookupGameEnded = useMemo(
+    () => !!(lookupGame?.sessionId && lookupGame.sessionId !== currentGame?.id),
+    [lookupGame, currentGame],
+  );
+
+  const myOrders = useMemo(() => {
+    if (!hasSearched || !lookupPhone.trim() || !lookupGameId || !lookupGame) return [];
+    const gameSheetIds = new Set(lookupGame.sheetIds);
+    return tambola.orders.filter(o =>
+      o.status === 'confirmed' &&
+      o.phone.replace(/\D/g, '') === lookupPhone.trim().replace(/\D/g, '') &&
+      o.sheetIds.some(sid => gameSheetIds.has(sid))
+    );
+  }, [hasSearched, lookupPhone, lookupGameId, lookupGame, tambola.orders]);
 
   // ─── Shared header ──────────────────────────────────────────────────────────
   const Header = ({ back, title }: { back?: () => void; title?: string }) => (

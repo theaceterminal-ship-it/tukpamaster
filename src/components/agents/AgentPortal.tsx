@@ -96,9 +96,10 @@ function MarkSoldDialog({ sheet, price, onConfirm }: {
 // ─── Game Group Card ──────────────────────────────────────────────────────────
 
 function GameGroupCard({
-  gameName, sheets, sheetPrice, onSell, onPreview,
+  gameName, ended = false, sheets, sheetPrice, onSell, onPreview,
 }: {
   gameName: string;
+  ended?: boolean;
   sheets: Sheet[];
   sheetPrice: number;
   onSell: (sheetId: string, name: string, phone: string) => void;
@@ -243,11 +244,14 @@ function GameGroupCard({
       {/* Game header */}
       <div className="flex items-center gap-4 px-5 py-4">
         <div className="flex-1 min-w-0">
-          <p className="font-bold text-slate-800 truncate">{gameName}</p>
+          <div className="flex items-center gap-2">
+            <p className="font-bold text-slate-800 truncate">{gameName}</p>
+            {ended && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 shrink-0">Ended</span>}
+          </div>
           <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
             <span className="flex items-center gap-1"><Package className="w-3 h-3" />{sheets.length} sheets</span>
             <span className="text-emerald-600 font-semibold">{sold} sold</span>
-            <span className="text-blue-600">{available} left</span>
+            {!ended && <span className="text-blue-600">{available} left</span>}
             <span className="text-amber-600 font-semibold">₹{revenue.toLocaleString()}</span>
           </div>
         </div>
@@ -337,7 +341,7 @@ function GameGroupCard({
                 <Button
                   size="sm"
                   onClick={openBuyerDialog}
-                  disabled={downloading}
+                  disabled={downloading || ended}
                   className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5 text-xs h-8"
                 >
                   <Download className="w-3 h-3" />
@@ -396,7 +400,7 @@ function GameGroupCard({
                         <Button size="sm" variant="ghost" onClick={() => buildSheetPDF(sheet, { ...DEFAULT_LAYOUT, template }).save(`${sheet.id}.pdf`)} className="h-7 px-2 text-xs gap-1 text-slate-500 hover:text-slate-700">
                           <Download className="w-3 h-3" />
                         </Button>
-                        {!isSold && (
+                        {!isSold && !ended && (
                           <MarkSoldDialog sheet={sheet} price={sheet.price ?? sheetPrice} onConfirm={onSell} />
                         )}
                       </div>
@@ -494,40 +498,34 @@ function AgentDashboard({ agent, onLogout }: { agent: Agent; onLogout: () => voi
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewId,  setPreviewId]  = useState('');
 
-  // Exclude sheets from played games (sessionId set but not the current live game)
-  const endedScheduledIds = useMemo(() => new Set(
-    tambola.scheduledGames
-      .filter(g => g.sessionId && g.sessionId !== tambola.currentGame?.id)
-      .map(g => g.id),
-  ), [tambola.scheduledGames, tambola.currentGame]);
-
+  // All sheets assigned to this agent
   const mySheets = useMemo(
-    () => tambola.sheets.filter(s =>
-      s.assignedTo === agent.id &&
-      !(s.scheduledGameId && endedScheduledIds.has(s.scheduledGameId)),
-    ),
-    [tambola.sheets, agent.id, endedScheduledIds],
+    () => tambola.sheets.filter(s => s.assignedTo === agent.id),
+    [tambola.sheets, agent.id],
   );
 
-  // Group by scheduledGameId; skip sheets not linked to any scheduled game
+  // Group by game; mark ended; unlinked sheets go under '__general__'
   const gameGroups = useMemo(() => {
-    const groups: Record<string, { id: string; name: string; sheets: Sheet[] }> = {};
+    const groups: Record<string, { id: string; name: string; ended: boolean; sheets: Sheet[] }> = {};
     mySheets.forEach(s => {
-      if (!s.scheduledGameId) return;
-      const gid = s.scheduledGameId;
+      const gid  = s.scheduledGameId ?? '__general__';
       if (!groups[gid]) {
-        const game = tambola.scheduledGames.find(g => g.id === gid);
-        if (!game) return;
-        groups[gid] = { id: gid, name: game.name, sheets: [] };
+        const game   = tambola.scheduledGames.find(g => g.id === gid);
+        const ended  = game ? (!!game.sessionId && game.sessionId !== tambola.currentGame?.id) : false;
+        groups[gid]  = { id: gid, name: game?.name ?? 'General', ended, sheets: [] };
       }
       groups[gid].sheets.push(s);
     });
     return Object.values(groups).sort((a, b) => {
+      if (a.id === '__general__') return 1;
+      if (b.id === '__general__') return -1;
       const ga = tambola.scheduledGames.find(g => g.id === a.id);
       const gb = tambola.scheduledGames.find(g => g.id === b.id);
+      if (a.ended && !b.ended) return 1;
+      if (!a.ended && b.ended) return -1;
       return new Date(ga?.scheduledAt ?? 0).getTime() - new Date(gb?.scheduledAt ?? 0).getTime();
     });
-  }, [mySheets, tambola.scheduledGames]);
+  }, [mySheets, tambola.scheduledGames, tambola.currentGame]);
 
   const totalSold    = mySheets.filter(s => s.status === 'sold').length;
   const totalRevenue = mySheets.filter(s => s.status === 'sold').reduce((sum, s) => sum + (s.price ?? tambola.sheetPrice), 0);
@@ -648,6 +646,7 @@ function AgentDashboard({ agent, onLogout }: { agent: Agent; onLogout: () => voi
               <GameGroupCard
                 key={group.id}
                 gameName={group.name}
+                ended={group.ended}
                 sheets={group.sheets}
                 sheetPrice={tambola.sheetPrice}
                 onSell={tambola.markSheetSoldByAgent}

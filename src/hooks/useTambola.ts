@@ -526,26 +526,6 @@ export function useTambola() {
 
   const setGameHistory = useCallback(async (historyOrFn: GameHistory[] | ((prev: GameHistory[]) => GameHistory[])) => {
     const newHistory = typeof historyOrFn === 'function' ? historyOrFn(gameHistory) : historyOrFn;
-
-    // Find session IDs being removed from history
-    const newIds = new Set(newHistory.map(h => h.id));
-    const removedSessionIds = gameHistory.filter(h => !newIds.has(h.id)).map(h => h.id);
-
-    if (removedSessionIds.length > 0) {
-      // Query DB directly (avoids stale closure on local scheduledGames state)
-      const { data: linkedRows } = await supabase
-        .from('scheduled_games')
-        .select('id')
-        .in('session_id', removedSessionIds);
-      const linkedIds = (linkedRows ?? []).map((r: Record<string, string>) => r.id);
-      if (linkedIds.length > 0) {
-        setScheduledGames(prev => prev.filter(g => !linkedIds.includes(g.id)));
-        setSheets(prev => prev.map(s => linkedIds.includes(s.scheduledGameId ?? '') ? { ...s, scheduledGameId: undefined } : s));
-        await supabase.from('scheduled_games').delete().in('id', linkedIds);
-        await supabase.from('sheets').update({ game_id: null }).in('game_id', linkedIds);
-      }
-    }
-
     setGameHistoryState(newHistory);
     await supabase.from('game_history').delete().neq('id', '___nonexistent___');
     if (newHistory.length > 0) {
