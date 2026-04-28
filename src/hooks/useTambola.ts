@@ -148,8 +148,18 @@ export function useTambola() {
   // ─── Fetch helpers ──────────────────────────────────────────────────────────
 
   const fetchSheets = useCallback(async () => {
-    const { data } = await supabase.from('sheets').select('*');
-    if (data) setSheets(data.map(dbToSheet));
+    // Paginate to bypass Supabase's default 1000-row limit
+    const all: Sheet[] = [];
+    let from = 0;
+    const BATCH = 1000;
+    while (true) {
+      const { data } = await supabase.from('sheets').select('*').range(from, from + BATCH - 1);
+      if (!data || data.length === 0) break;
+      all.push(...data.map(dbToSheet));
+      if (data.length < BATCH) break;
+      from += BATCH;
+    }
+    setSheets(all);
   }, []);
 
   const fetchAgents = useCallback(async () => {
@@ -305,8 +315,12 @@ export function useTambola() {
     });
     const ids = toAssign.map(s => s.id);
     setSheets(prev => prev.map(s => ids.includes(s.id) ? { ...s, assignedTo: agentId, status: 'assigned' as const } : s));
-    if (ids.length > 0) {
-      await supabase.from('sheets').update({ assigned_to: agentId, status: 'assigned' }).in('id', ids);
+    // Batch DB updates to avoid URL length limits with large IN clauses
+    const BATCH = 50;
+    for (let i = 0; i < ids.length; i += BATCH) {
+      await supabase.from('sheets')
+        .update({ assigned_to: agentId, status: 'assigned' })
+        .in('id', ids.slice(i, i + BATCH));
     }
     return ids.length;
   }, []);
