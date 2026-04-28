@@ -521,9 +521,9 @@ export function useTambola() {
 
   const removeScheduledGame = useCallback(async (id: string) => {
     setScheduledGames(prev => prev.filter(g => g.id !== id));
-    setSheets(prev => prev.map(s => s.scheduledGameId === id ? { ...s, scheduledGameId: undefined } : s));
+    setSheets(prev => prev.filter(s => s.scheduledGameId !== id));
+    await supabase.from('sheets').delete().eq('game_id', id);
     await supabase.from('scheduled_games').delete().eq('id', id);
-    await supabase.from('sheets').update({ game_id: null }).eq('game_id', id);
   }, []);
 
   const rescheduleGame = useCallback(async (id: string, newScheduledAt: string) => {
