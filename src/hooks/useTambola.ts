@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useLocalStorage } from './useLocalStorage';
 import { generateSheet, verifyDividend } from '@/lib/tambola';
-import { mktCallNumber } from '@/services/marketplaceApi';
 import type {
   Sheet, Agent, Player, GameSession, GameHistory,
   Winner, Dividend, AppPage, Order, UpiSettings, ScheduledGame, ScheduledGamePrize,
@@ -140,7 +139,6 @@ export function useTambola() {
   const [loading,        setLoading]          = useState(true);
   const [currentPage, setCurrentPage] = useLocalStorage<AppPage>('tukpa-page', 'dashboard');
   const [mktApiKey, setMktApiKey] = useLocalStorage<string>('tukpa-mkt-api-key', '');
-  const [mktGameId, setMktGameId] = useLocalStorage<string>('tukpa-mkt-game-id', '');
 
   // Keep latest sheets in a ref for callbacks that close over stale state
   const sheetsRef = useRef<Sheet[]>([]);
@@ -450,12 +448,8 @@ export function useTambola() {
     if (currentGame && !currentGame.calledNumbers.includes(number)) {
       const newCalled = [...currentGame.calledNumbers, number];
       await supabase.from('game_sessions').update({ called_numbers: newCalled }).eq('id', currentGame.id);
-      // Broadcast to Tungbola players via TungbolaMarket if linked
-      if (mktApiKey && mktGameId) {
-        mktCallNumber(mktApiKey, mktGameId, number).catch(() => {});
-      }
     }
-  }, [currentGame, mktApiKey, mktGameId]);
+  }, [currentGame]);
 
   const claimDividend = useCallback(async (dividendId: string, playerName: string) => {
     setCurrentGameState(prev => {
@@ -590,7 +584,7 @@ export function useTambola() {
     sheets, agents, players, orders, currentGame, gameHistory, currentPage, stats,
     sheetPrice, setSheetPrice, upiSettings, setUpiSettings,
     scheduledGames, scheduleGame, removeScheduledGame, rescheduleGame, linkScheduledGame,
-    mktApiKey, setMktApiKey, mktGameId, setMktGameId,
+    mktApiKey, setMktApiKey,
     setCurrentPage,
     generateSingleSheet, generateMultipleSheets, generateSheetsForGame, deleteSheetsById,
     assignSheetToAgent, assignSheetsByRange,

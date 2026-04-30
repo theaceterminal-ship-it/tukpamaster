@@ -16,7 +16,7 @@ const PAGE_LABELS: Record<string, string> = {
   history:            'History',
   marketplace:        'Marketplace',
   'pending-payments': 'Payments',
-  settings:           'Settings',
+  settings:           'Marketplace',
 };
 
 export function Header({ tambola }: HeaderProps) {
