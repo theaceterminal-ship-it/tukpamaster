@@ -16,6 +16,7 @@ import { PrizeManager } from '@/components/prizes/PrizeManager';
 import { GameHistory } from '@/components/history/GameHistory';
 import { Marketplace } from '@/components/marketplace/Marketplace';
 import { PendingPayments } from '@/components/payments/PendingPayments';
+import { Settings } from '@/components/settings/Settings';
 import { Toaster } from '@/components/ui/sonner';
 import './App.css';
 
@@ -127,6 +128,7 @@ function OperatorApp() {
       case 'history':          return <GameHistory tambola={tambola} />;
       case 'marketplace':      return <Marketplace />;
       case 'pending-payments': return <PendingPayments tambola={tambola} />;
+      case 'settings':         return <Settings tambola={tambola} />;
       default:                 return <Dashboard tambola={tambola} />;
     }
   };

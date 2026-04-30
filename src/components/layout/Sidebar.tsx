@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Ticket, Users, UserCircle,
   Radio, History,
-  ClipboardList, Dice5,
+  ClipboardList, Dice5, Settings2,
 } from 'lucide-react';
 import type { AppPage } from '@/types';
 import { cn } from '@/lib/utils';
@@ -23,6 +23,7 @@ const BOTTOM_NAV: { page: AppPage; label: string; icon: React.ElementType }[] = 
   { page: 'pending-payments', label: 'Payments',  icon: ClipboardList },
   { page: 'live-game',        label: 'Live Game', icon: Radio },
   { page: 'history',          label: 'History',   icon: History },
+  { page: 'settings',         label: 'Settings',  icon: Settings2 },
 ];
 
 export function Sidebar({ currentPage, onPageChange, pendingCount = 0 }: SidebarProps) {

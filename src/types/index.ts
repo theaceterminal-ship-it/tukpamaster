@@ -139,4 +139,4 @@ export interface ScheduledGame {
 export type AppPage =
   | 'dashboard' | 'sheets' | 'agents' | 'players'
   | 'live-game' | 'verifier' | 'prizes' | 'history'
-  | 'marketplace' | 'pending-payments';
+  | 'marketplace' | 'pending-payments' | 'settings';
