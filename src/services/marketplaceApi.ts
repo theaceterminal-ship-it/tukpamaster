@@ -110,3 +110,12 @@ export async function mktGetSheet(
 ): Promise<{ sheet: { n: number; f: string; u: string } }> {
   return post(apiKey, { action: 'get-sheet', sheetNum });
 }
+
+export async function mktRegisterSheet(
+  apiKey: string,
+  sheetNum: number,
+  filename: string,
+  url: string,
+): Promise<{ sheet: { n: number; f: string; u: string } }> {
+  return post(apiKey, { action: 'register-sheet', sheetNum, filename, url });
+}
