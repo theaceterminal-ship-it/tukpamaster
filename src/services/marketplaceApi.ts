@@ -88,3 +88,25 @@ export async function mktCallNumber(
 export async function mktResetLive(apiKey: string, gameId: string): Promise<void> {
   return post(apiKey, { action: 'reset-live', gameId });
 }
+
+export async function mktUploadSheet(
+  apiKey: string,
+  sheetNum: number,
+  filename: string,
+  base64Data: string,
+): Promise<{ url: string; n: number }> {
+  return post(apiKey, { action: 'upload-sheet', sheetNum, filename, data: base64Data });
+}
+
+export async function mktSheetLibraryStats(
+  apiKey: string,
+): Promise<{ count: number; plan: string }> {
+  return post(apiKey, { action: 'sheet-library-stats' });
+}
+
+export async function mktGetSheet(
+  apiKey: string,
+  sheetNum: number,
+): Promise<{ sheet: { n: number; f: string; u: string } }> {
+  return post(apiKey, { action: 'get-sheet', sheetNum });
+}

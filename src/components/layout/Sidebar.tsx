@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Ticket, Users, UserCircle,
   Radio, History,
-  ClipboardList, Dice5, Globe,
+  ClipboardList, Dice5, Globe, LogOut,
 } from 'lucide-react';
 import type { AppPage } from '@/types';
 import { cn } from '@/lib/utils';
@@ -10,6 +10,7 @@ interface SidebarProps {
   currentPage: AppPage;
   onPageChange: (page: AppPage) => void;
   pendingCount?: number;
+  onLogout?: () => void;
 }
 
 const TOP_NAV: { page: AppPage; label: string; icon: React.ElementType }[] = [
@@ -26,7 +27,7 @@ const BOTTOM_NAV: { page: AppPage; label: string; icon: React.ElementType }[] = 
   { page: 'settings',         label: 'Market',    icon: Globe },
 ];
 
-export function Sidebar({ currentPage, onPageChange, pendingCount = 0 }: SidebarProps) {
+export function Sidebar({ currentPage, onPageChange, pendingCount = 0, onLogout }: SidebarProps) {
   const renderItem = (item: typeof TOP_NAV[0]) => {
     const isActive = currentPage === item.page;
     const badge = item.page === 'pending-payments' && pendingCount > 0 ? pendingCount : null;
@@ -84,6 +85,18 @@ export function Sidebar({ currentPage, onPageChange, pendingCount = 0 }: Sidebar
         <div className="my-2 mx-1 h-px bg-black/15" />
         {BOTTOM_NAV.map(renderItem)}
       </nav>
+
+      {onLogout && (
+        <div className="p-2.5 border-t border-black/10 shrink-0">
+          <button
+            onClick={onLogout}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-white/40 hover:bg-black/15 hover:text-white/80 transition-all"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="flex-1 text-left">Logout</span>
+          </button>
+        </div>
+      )}
     </aside>
   );
 }

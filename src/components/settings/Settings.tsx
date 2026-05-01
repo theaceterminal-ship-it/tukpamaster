@@ -13,7 +13,9 @@ import {
 import { cn } from '@/lib/utils';
 
 interface SettingsProps {
-  tambola: ReturnType<typeof useTambola>;
+  tambola?: ReturnType<typeof useTambola>;
+  apiKey?: string;
+  initOperator?: MktOperator;
 }
 
 type Tab = 'connect' | 'games' | 'sales';
@@ -38,14 +40,19 @@ const STATUS_COLORS: Record<string, string> = {
   ended:  'bg-red-100 text-red-600',
 };
 
-export function Settings({ tambola }: SettingsProps) {
-  const { mktApiKey, setMktApiKey } = tambola;
+export function Settings({ tambola, apiKey, initOperator }: SettingsProps) {
+  const effectiveKey = apiKey ?? tambola?.mktApiKey ?? '';
+  const setEffectiveKey = tambola?.setMktApiKey ?? (() => {});
+  const isPlanA = !!apiKey;
 
-  const [tab, setTab] = useState<Tab>(mktApiKey ? 'games' : 'connect');
-  const [inputKey, setInputKey] = useState(mktApiKey);
-  const [keyStatus, setKeyStatus] = useState<'idle' | 'checking' | 'ok' | 'error'>(mktApiKey ? 'ok' : 'idle');
+  const [tab, setTab] = useState<Tab>(() => {
+    if (isPlanA) return 'games';
+    return effectiveKey ? 'games' : 'connect';
+  });
+  const [inputKey, setInputKey] = useState(effectiveKey);
+  const [keyStatus, setKeyStatus] = useState<'idle' | 'checking' | 'ok' | 'error'>(effectiveKey ? 'ok' : 'idle');
   const [errMsg, setErrMsg] = useState('');
-  const [operator, setOperator] = useState<MktOperator | null>(null);
+  const [operator, setOperator] = useState<MktOperator | null>(initOperator ?? null);
 
   const [games, setGames] = useState<MktGame[]>([]);
   const [purchases, setPurchases] = useState<MktPurchase[]>([]);
@@ -65,9 +72,10 @@ export function Settings({ tambola }: SettingsProps) {
   const [assignTo, setAssignTo] = useState('');
   const [assigning, setAssigning] = useState(false);
 
-  const isConnected = keyStatus === 'ok' && !!mktApiKey;
+  const isConnected = keyStatus === 'ok' && !!effectiveKey;
+  const availableTabs: Tab[] = isPlanA ? ['games', 'sales'] : ['connect', 'games', 'sales'];
 
-  const loadData = useCallback(async (key = mktApiKey) => {
+  const loadData = useCallback(async (key = effectiveKey) => {
     if (!key) return;
     setDataLoading(true);
     try {
@@ -83,10 +91,10 @@ export function Settings({ tambola }: SettingsProps) {
     } finally {
       setDataLoading(false);
     }
-  }, [mktApiKey]);
+  }, [effectiveKey]);
 
   useEffect(() => {
-    if (mktApiKey && keyStatus === 'ok') loadData(mktApiKey);
+    if (effectiveKey && keyStatus === 'ok') loadData(effectiveKey);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -96,7 +104,7 @@ export function Settings({ tambola }: SettingsProps) {
     setKeyStatus('checking'); setErrMsg('');
     try {
       const info = await mktGetInfo(k);
-      setMktApiKey(k);
+      setEffectiveKey(k);
       setOperator(info.operator);
       setGames(info.games);
       setKeyStatus('ok');
@@ -111,14 +119,14 @@ export function Settings({ tambola }: SettingsProps) {
   }
 
   function disconnectKey() {
-    setMktApiKey(''); setInputKey('');
+    setEffectiveKey(''); setInputKey('');
     setKeyStatus('idle'); setOperator(null);
     setGames([]); setPurchases([]);
     setTab('connect');
   }
 
   async function handleCreateGame() {
-    if (!cName.trim() || !mktApiKey) return;
+    if (!cName.trim() || !effectiveKey) return;
     setCreating(true);
     try {
       const prizes = Object.entries(cPrizes)
@@ -127,7 +135,7 @@ export function Settings({ tambola }: SettingsProps) {
           name: PRIZE_TYPES.find(p => p.type === type)?.label ?? type,
           amount,
         }));
-      const { game } = await mktCreateGame(mktApiKey, {
+      const { game } = await mktCreateGame(effectiveKey, {
         name: cName.trim(),
         gameDate: cDate || undefined,
         pricePerSheet: cPrice,
@@ -144,10 +152,10 @@ export function Settings({ tambola }: SettingsProps) {
   }
 
   async function handleAssignSheets(gameId: string) {
-    if (!mktApiKey || !assignFrom || !assignTo) return;
+    if (!effectiveKey || !assignFrom || !assignTo) return;
     setAssigning(true);
     try {
-      const { game } = await mktAssignSheets(mktApiKey, gameId, Number(assignFrom), Number(assignTo));
+      const { game } = await mktAssignSheets(effectiveKey, gameId, Number(assignFrom), Number(assignTo));
       setGames(prev => prev.map(g => g.id === gameId ? { ...g, sheetCount: game.sheetCount } : g));
       setAssignGame(null); setAssignFrom(''); setAssignTo('');
     } catch (e) {
@@ -158,9 +166,9 @@ export function Settings({ tambola }: SettingsProps) {
   }
 
   async function handleSetStatus(gameId: string, status: 'listed' | 'draft' | 'ended') {
-    if (!mktApiKey) return;
+    if (!effectiveKey) return;
     try {
-      await mktSetStatus(mktApiKey, gameId, status);
+      await mktSetStatus(effectiveKey, gameId, status);
       setGames(prev => prev.map(g => g.id === gameId ? { ...g, status } : g));
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Update failed');
@@ -168,9 +176,9 @@ export function Settings({ tambola }: SettingsProps) {
   }
 
   async function handleDelete(gameId: string) {
-    if (!mktApiKey || !confirm('Delete this game and all its purchases?')) return;
+    if (!effectiveKey || !confirm('Delete this game and all its purchases?')) return;
     try {
-      await mktDeleteGame(mktApiKey, gameId);
+      await mktDeleteGame(effectiveKey, gameId);
       setGames(prev => prev.filter(g => g.id !== gameId));
       setPurchases(prev => prev.filter(p => p.gameId !== gameId));
     } catch (e) {
@@ -179,9 +187,9 @@ export function Settings({ tambola }: SettingsProps) {
   }
 
   async function handleApprove(purchaseId: string) {
-    if (!mktApiKey) return;
+    if (!effectiveKey) return;
     try {
-      await mktApprovePurchase(mktApiKey, purchaseId);
+      await mktApprovePurchase(effectiveKey, purchaseId);
       setPurchases(prev => prev.map(p => p.purchaseId === purchaseId ? { ...p, status: 'approved' } : p));
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Approve failed');
@@ -206,7 +214,7 @@ export function Settings({ tambola }: SettingsProps) {
         </div>
         {isConnected && (
           <button
-            onClick={() => loadData()}
+            onClick={() => loadData(effectiveKey)}
             disabled={dataLoading}
             className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white/60 hover:text-white transition-colors"
             title="Refresh"
@@ -218,7 +226,7 @@ export function Settings({ tambola }: SettingsProps) {
 
       {/* Tabs */}
       <div className="flex gap-1 bg-black/20 rounded-xl p-1">
-        {(['connect', 'games', 'sales'] as Tab[]).map(t => (
+        {availableTabs.map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
