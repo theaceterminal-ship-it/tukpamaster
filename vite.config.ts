@@ -15,14 +15,13 @@ export default defineConfig({
       manifest: {
         name: 'TukpaMaster',
         short_name: 'TukpaMaster',
-        description: 'Tambola Operator Portal — schedule games, manage orders, run live games.',
+        description: 'Tambola Operator Portal',
         theme_color: '#0284c7',
         background_color: '#0ea5e9',
         display: 'standalone',
         orientation: 'portrait-primary',
         start_url: '/',
         scope: '/',
-        categories: ['productivity', 'business'],
         icons: [
           { src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png' },
           { src: '/pwa-512x512.png', sizes: '512x512', type: 'image/png' },
@@ -30,29 +29,20 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,png,svg,ico}'],
+        // Force new SW to activate immediately — no waiting for tab close
+        skipWaiting: true,
+        clientsClaim: true,
         cleanupOutdatedCaches: true,
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/tungbola-market\.vercel\.app\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              expiration: { maxEntries: 50, maxAgeSeconds: 60 },
-            },
-          },
-        ],
+        cacheId: 'tukpa-v4',
+        globPatterns: ['**/*.{js,css,html,png,svg,ico,webmanifest}'],
+        // Never cache API calls — always go to network
+        navigateFallback: 'index.html',
+        runtimeCaching: [],
       },
     }),
   ],
-  server: {
-    port: 3000,
-  },
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
-  },
+  server: { port: 3000 },
+  resolve: { alias: { "@": path.resolve(__dirname, "./src") } },
   build: {
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
