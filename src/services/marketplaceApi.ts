@@ -54,9 +54,27 @@ export async function mktGetPurchases(apiKey: string): Promise<{ purchases: MktP
 
 export async function mktCreateGame(
   apiKey: string,
-  game: { name: string; gameDate?: string; pricePerSheet: number; description?: string; prizes?: unknown[] }
+  game: {
+    name: string;
+    gameDate?: string | null;
+    gameDateRaw?: string | null;
+    joinTime?: string | null;
+    pricePerSheet: number;
+    pricingTiers?: { qty: number; price: number }[];
+    description?: string;
+    prizes?: unknown[];
+    thumbnail?: string | null;
+  }
 ): Promise<{ game: MktGame }> {
   return post(apiKey, { action: 'create-game', ...game });
+}
+
+export async function mktUploadThumbnail(
+  apiKey: string,
+  filename: string,
+  base64Data: string,
+): Promise<{ url: string }> {
+  return post(apiKey, { action: 'upload-thumbnail', filename, data: base64Data });
 }
 
 export async function mktAssignSheets(

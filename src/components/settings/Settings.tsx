@@ -2,14 +2,15 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Key, CheckCircle, XCircle, Loader2, Link2, Unlink,
   Globe, Plus, Trash2, RefreshCw, ShoppingBag,
-  Check, X, Calendar,
+  Check, Calendar,
 } from 'lucide-react';
 import type { useTambola } from '@/hooks/useTambola';
 import {
-  mktGetInfo, mktGetPurchases, mktCreateGame, mktAssignSheets,
+  mktGetInfo, mktGetPurchases, mktAssignSheets,
   mktSetStatus, mktDeleteGame, mktApprovePurchase,
   type MktGame, type MktPurchase, type MktOperator,
 } from '@/services/marketplaceApi';
+import { ScheduleGameWizard } from '@/components/marketplace/ScheduleGameWizard';
 import { cn } from '@/lib/utils';
 
 interface SettingsProps {
@@ -19,20 +20,6 @@ interface SettingsProps {
 }
 
 type Tab = 'connect' | 'games' | 'sales';
-
-const PRIZE_TYPES = [
-  { type: 'full-house',        label: 'Full House',        def: 5000 },
-  { type: 'second-full-house', label: 'Second Full House', def: 3000 },
-  { type: 'third-full-house',  label: 'Third Full House',  def: 2000 },
-  { type: 'upper-line',        label: 'Upper Line',        def: 1000 },
-  { type: 'middle-line',       label: 'Middle Line',       def: 1000 },
-  { type: 'bottom-line',       label: 'Bottom Line',       def: 1000 },
-  { type: 'ticket-corners',    label: 'Ticket Corners',    def: 500  },
-  { type: 'sheet-corner',      label: 'Sheet Corner',      def: 2000 },
-  { type: 'early-5',           label: 'Early 5',           def: 500  },
-  { type: 'early-6',           label: 'Early 6',           def: 600  },
-  { type: 'early-7',           label: 'Early 7',           def: 700  },
-] as const;
 
 const STATUS_COLORS: Record<string, string> = {
   draft:  'bg-slate-100 text-slate-600',
@@ -58,13 +45,8 @@ export function Settings({ tambola, apiKey, initOperator }: SettingsProps) {
   const [purchases, setPurchases] = useState<MktPurchase[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
 
-  // create-game form
-  const [showCreate, setShowCreate] = useState(false);
-  const [cName, setCName] = useState('');
-  const [cDate, setCDate] = useState('');
-  const [cPrice, setCPrice] = useState(100);
-  const [cPrizes, setCPrizes] = useState<Record<string, number>>({ 'full-house': 5000 });
-  const [creating, setCreating] = useState(false);
+  // wizard
+  const [showWizard, setShowWizard] = useState(false);
 
   // sheet assignment
   const [assignGame, setAssignGame] = useState<string | null>(null);
@@ -123,32 +105,6 @@ export function Settings({ tambola, apiKey, initOperator }: SettingsProps) {
     setKeyStatus('idle'); setOperator(null);
     setGames([]); setPurchases([]);
     setTab('connect');
-  }
-
-  async function handleCreateGame() {
-    if (!cName.trim() || !effectiveKey) return;
-    setCreating(true);
-    try {
-      const prizes = Object.entries(cPrizes)
-        .filter(([, v]) => v > 0)
-        .map(([type, amount]) => ({
-          name: PRIZE_TYPES.find(p => p.type === type)?.label ?? type,
-          amount,
-        }));
-      const { game } = await mktCreateGame(effectiveKey, {
-        name: cName.trim(),
-        gameDate: cDate || undefined,
-        pricePerSheet: cPrice,
-        prizes,
-      });
-      setGames(prev => [game, ...prev]);
-      setShowCreate(false);
-      setCName(''); setCDate(''); setCPrice(100); setCPrizes({ 'full-house': 5000 });
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Failed to create game');
-    } finally {
-      setCreating(false);
-    }
   }
 
   async function handleAssignSheets(gameId: string) {
@@ -334,110 +290,14 @@ export function Settings({ tambola, apiKey, initOperator }: SettingsProps) {
                 ))}
               </div>
 
-              {/* New game toggle */}
+              {/* New game wizard button */}
               <button
-                onClick={() => setShowCreate(v => !v)}
+                onClick={() => setShowWizard(true)}
                 className="w-full py-3 rounded-2xl font-bold text-slate-900 text-sm flex items-center justify-center gap-2 bg-amber-400 hover:bg-amber-300 transition-colors"
               >
-                {showCreate ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                {showCreate ? 'Cancel' : 'New Marketplace Game'}
+                <Plus className="w-4 h-4" />
+                New Marketplace Game
               </button>
-
-              {/* Create game form */}
-              {showCreate && (
-                <div className="bg-white rounded-2xl p-5 space-y-4">
-                  <p className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                    <Globe className="w-4 h-4 text-sky-600" /> Create Game
-                  </p>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs font-semibold text-slate-600 mb-1 block">Game Name *</label>
-                      <input
-                        type="text"
-                        value={cName}
-                        onChange={e => setCName(e.target.value)}
-                        placeholder="e.g. Sunday Mega Tambola"
-                        className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-semibold text-slate-600 mb-1 block">Date &amp; Time</label>
-                      <input
-                        type="datetime-local"
-                        value={cDate}
-                        onChange={e => setCDate(e.target.value)}
-                        className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600 mb-1 block">Price per Sheet (₹)</label>
-                    <input
-                      type="number"
-                      value={cPrice}
-                      onChange={e => setCPrice(Number(e.target.value))}
-                      min={1}
-                      className="w-32 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600 mb-2 block">Prizes</label>
-                    <div className="space-y-2">
-                      {PRIZE_TYPES.map(pt => {
-                        const checked = pt.type in cPrizes;
-                        return (
-                          <div key={pt.type} className="flex items-center gap-3">
-                            <button
-                              type="button"
-                              onClick={() => setCPrizes(prev => {
-                                const n = { ...prev };
-                                if (checked) delete n[pt.type]; else n[pt.type] = pt.def;
-                                return n;
-                              })}
-                              className={cn(
-                                'w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors',
-                                checked ? 'bg-sky-500 border-sky-500' : 'border-slate-300'
-                              )}
-                            >
-                              {checked && <Check className="w-3 h-3 text-white" />}
-                            </button>
-                            <span className={cn('text-sm w-36 shrink-0', checked ? 'text-slate-800 font-medium' : 'text-slate-400')}>
-                              {pt.label}
-                            </span>
-                            {checked && (
-                              <div className="flex items-center gap-1">
-                                <span className="text-slate-400 text-sm">₹</span>
-                                <input
-                                  type="number"
-                                  value={cPrizes[pt.type]}
-                                  onChange={e => setCPrizes(prev => ({ ...prev, [pt.type]: Number(e.target.value) }))}
-                                  min={0}
-                                  className="w-24 border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
-                                />
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={handleCreateGame}
-                    disabled={creating || !cName.trim()}
-                    className="w-full py-3 rounded-xl font-bold text-white text-sm disabled:opacity-50 flex items-center justify-center gap-2"
-                    style={{ backgroundColor: '#0284c7' }}
-                  >
-                    {creating
-                      ? <Loader2 className="w-4 h-4 animate-spin" />
-                      : <Globe className="w-4 h-4" />}
-                    Create &amp; Publish to Marketplace
-                  </button>
-                </div>
-              )}
 
               {/* Games list */}
               {dataLoading && games.length === 0 ? (
@@ -474,6 +334,18 @@ export function Settings({ tambola, apiKey, initOperator }: SettingsProps) {
             </>
           )}
         </div>
+      )}
+
+      {/* ── SCHEDULE WIZARD ── */}
+      {showWizard && (
+        <ScheduleGameWizard
+          apiKey={effectiveKey}
+          onCreated={game => {
+            setGames(prev => [game, ...prev]);
+            setShowWizard(false);
+          }}
+          onClose={() => setShowWizard(false)}
+        />
       )}
 
       {/* ── SALES ── */}
