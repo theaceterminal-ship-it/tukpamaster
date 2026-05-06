@@ -10,6 +10,18 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+  .pt-safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pb-safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+html, body, #root {
+  height: 100%;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 @layer base {

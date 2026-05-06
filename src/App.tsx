@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { Dice5, Key, Eye, EyeOff, Loader2, Globe, Radio, Upload, LogOut } from 'lucide-react';
+import { Dice5, Key, Eye, EyeOff, Loader2, Globe, Radio, Upload, LogOut, Menu, X } from 'lucide-react';
 import { mktGetInfo, type MktOperator } from '@/services/marketplaceApi';
 import { useTambola } from '@/hooks/useTambola';
-import { Sidebar } from '@/components/layout/Sidebar';
+import { Sidebar, MobileBottomNav } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { Splash } from '@/components/layout/Splash';
 import { Dashboard } from '@/components/dashboard/Dashboard';
@@ -69,8 +69,8 @@ function ApiKeyLogin({ onSuccess }: { onSuccess: (s: OpSession) => void }) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#0ea5e9' }}>
-      <div className="w-full max-w-sm space-y-6 px-4">
+    <div className="min-h-[100dvh] flex items-center justify-center px-4" style={{ backgroundColor: '#0ea5e9' }}>
+      <div className="w-full max-w-sm space-y-6">
         <div className="text-center space-y-2">
           <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center mx-auto">
             <Dice5 className="w-8 h-8 text-white" />
@@ -105,19 +105,14 @@ function ApiKeyLogin({ onSuccess }: { onSuccess: (s: OpSession) => void }) {
               {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
-          {status === 'error' && (
-            <p className="text-sm text-red-500">✕ {errMsg}</p>
-          )}
+          {status === 'error' && <p className="text-sm text-red-500">✕ {errMsg}</p>}
           <button
             onClick={handleConnect}
             disabled={status === 'checking' || !key.trim()}
             className="w-full py-3 rounded-xl font-bold text-white text-sm disabled:opacity-50 transition-opacity flex items-center justify-center gap-2"
             style={{ backgroundColor: '#0ea5e9' }}
           >
-            {status === 'checking'
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> Verifying…</>
-              : 'Sign In'
-            }
+            {status === 'checking' ? <><Loader2 className="w-4 h-4 animate-spin" /> Verifying…</> : 'Sign In'}
           </button>
         </div>
       </div>
@@ -139,21 +134,22 @@ function ApiKeyLogin({ onSuccess }: { onSuccess: (s: OpSession) => void }) {
 
 type PlanAPage = 'market' | 'live-game' | 'load-sheets';
 
-const PLAN_A_NAV: { page: PlanAPage; label: string; icon: React.ElementType }[] = [
-  { page: 'market',      label: 'Market',      icon: Globe   },
-  { page: 'live-game',   label: 'Live Game',   icon: Radio   },
-  { page: 'load-sheets', label: 'Load Sheets', icon: Upload  },
+const PLAN_A_NAV: { page: PlanAPage; label: string; icon: React.ElementType; mobileLabel: string }[] = [
+  { page: 'market',       label: 'Marketplace',   mobileLabel: 'Market',  icon: Globe   },
+  { page: 'live-game',    label: 'Live Game',     mobileLabel: 'Live',    icon: Radio   },
+  { page: 'load-sheets',  label: 'Sheet Library', mobileLabel: 'Sheets',  icon: Upload  },
 ];
 
 const PLAN_A_LABELS: Record<PlanAPage, string> = {
-  market:       'Marketplace',
-  'live-game':  'Live Game',
+  market:        'Marketplace',
+  'live-game':   'Live Game',
   'load-sheets': 'Sheet Library',
 };
 
 function PlanAApp({ session, onLogout }: { session: OpSession; onLogout: () => void }) {
   const [page, setPage] = useState<PlanAPage>('market');
   const [splash, setSplash] = useState(true);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setSplash(false), 1600);
@@ -171,13 +167,13 @@ function PlanAApp({ session, onLogout }: { session: OpSession; onLogout: () => v
   return (
     <>
       <Splash visible={splash} />
-      <div className="flex h-screen w-screen overflow-hidden" style={{ backgroundColor: '#0ea5e9' }}>
-        {/* Sidebar */}
-        <aside className="w-52 flex flex-col shrink-0 border-r border-black/10" style={{ backgroundColor: '#0284c7' }}>
+      <div className="flex h-[100dvh] w-screen overflow-hidden" style={{ backgroundColor: '#0ea5e9' }}>
+
+        {/* Desktop sidebar */}
+        <aside className="hidden md:flex w-52 flex-col shrink-0 border-r border-black/10" style={{ backgroundColor: '#0284c7' }}>
           <div className="px-4 py-5 border-b border-black/10">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                style={{ backgroundColor: 'rgba(0,0,0,0.22)' }}>
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(0,0,0,0.22)' }}>
                 <Dice5 className="w-5 h-5 text-white" />
               </div>
               <div>
@@ -196,9 +192,7 @@ function PlanAApp({ session, onLogout }: { session: OpSession; onLogout: () => v
                   onClick={() => setPage(item.page)}
                   className={cn(
                     'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all',
-                    isActive
-                      ? 'bg-black/25 text-white shadow-inner'
-                      : 'text-white/60 hover:bg-black/15 hover:text-white',
+                    isActive ? 'bg-black/25 text-white shadow-inner' : 'text-white/60 hover:bg-black/15 hover:text-white',
                   )}
                 >
                   <item.icon className={cn('w-4 h-4', isActive ? 'text-white' : 'text-white/50')} />
@@ -214,27 +208,118 @@ function PlanAApp({ session, onLogout }: { session: OpSession; onLogout: () => v
                 <p className="text-xs font-bold text-white truncate">{session.operator.name}</p>
                 <p className="text-[10px] text-white/40">Plan A</p>
               </div>
-              <button
-                onClick={onLogout}
-                className="text-white/40 hover:text-white/80 transition-colors"
-                title="Logout"
-              >
+              <button onClick={onLogout} className="text-white/40 hover:text-white/80 transition-colors" title="Logout">
                 <LogOut className="w-4 h-4" />
               </button>
             </div>
           </div>
         </aside>
 
-        {/* Content */}
+        {/* Main content area */}
         <div className="flex flex-col flex-1 overflow-hidden">
+
+          {/* Top bar */}
           <div
-            className="h-12 flex items-center px-5 shrink-0 border-b border-black/10"
+            className="h-12 flex items-center px-4 shrink-0 border-b border-black/10"
             style={{ backgroundColor: 'rgba(0,0,0,0.08)' }}
           >
-            <span className="text-sm font-bold text-white/80">{PLAN_A_LABELS[page]}</span>
+            {/* Mobile: hamburger menu button */}
+            <button
+              className="md:hidden p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-black/15 mr-2"
+              onClick={() => setDrawerOpen(true)}
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <span className="text-sm font-bold text-white/80 flex-1">{PLAN_A_LABELS[page]}</span>
+            {/* Operator name on mobile */}
+            <span className="md:hidden text-xs text-white/40 truncate max-w-[120px]">{session.operator.name}</span>
           </div>
-          <main className="flex-1 overflow-auto p-6">{renderPage()}</main>
+
+          <main className="flex-1 overflow-auto p-4 md:p-6 pb-20 md:pb-6">
+            {renderPage()}
+          </main>
         </div>
+
+        {/* Mobile bottom nav */}
+        <nav
+          className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex border-t border-black/15"
+          style={{ backgroundColor: '#0284c7', paddingBottom: 'env(safe-area-inset-bottom)' }}
+        >
+          {PLAN_A_NAV.map(item => {
+            const isActive = page === item.page;
+            return (
+              <button
+                key={item.page}
+                onClick={() => setPage(item.page)}
+                className={cn(
+                  'flex-1 flex flex-col items-center gap-0.5 py-2 text-[10px] font-semibold transition-colors relative',
+                  isActive ? 'text-white' : 'text-white/45'
+                )}
+              >
+                <item.icon className="w-5 h-5" />
+                <span>{item.mobileLabel}</span>
+                {isActive && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-white rounded-full" />}
+              </button>
+            );
+          })}
+          <button
+            onClick={onLogout}
+            className="flex-1 flex flex-col items-center gap-0.5 py-2 text-[10px] font-semibold text-white/45 transition-colors"
+          >
+            <LogOut className="w-5 h-5" />
+            <span>Logout</span>
+          </button>
+        </nav>
+
+        {/* Mobile slide-over drawer */}
+        {drawerOpen && (
+          <div className="md:hidden fixed inset-0 z-50 flex">
+            <div className="absolute inset-0 bg-black/50" onClick={() => setDrawerOpen(false)} />
+            <aside className="relative w-64 flex flex-col h-full shadow-2xl" style={{ backgroundColor: '#0284c7' }}>
+              <div className="px-4 py-5 border-b border-black/10 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(0,0,0,0.22)' }}>
+                    <Dice5 className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-black text-white">TukpaMaster</p>
+                    <p className="text-[10px] text-white/50 uppercase tracking-widest">Own Sheets</p>
+                  </div>
+                </div>
+                <button onClick={() => setDrawerOpen(false)} className="text-white/50 hover:text-white p-1">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <nav className="flex-1 p-2.5 space-y-0.5 overflow-y-auto">
+                {PLAN_A_NAV.map(item => {
+                  const isActive = page === item.page;
+                  return (
+                    <button
+                      key={item.page}
+                      onClick={() => { setPage(item.page); setDrawerOpen(false); }}
+                      className={cn(
+                        'w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-all',
+                        isActive ? 'bg-black/25 text-white' : 'text-white/60 hover:bg-black/15 hover:text-white',
+                      )}
+                    >
+                      <item.icon className={cn('w-4 h-4', isActive ? 'text-white' : 'text-white/50')} />
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </nav>
+              <div className="p-2.5 border-t border-black/10">
+                <div className="px-3 py-2 mb-2">
+                  <p className="text-xs font-bold text-white">{session.operator.name}</p>
+                  <p className="text-[10px] text-white/40">Plan A · Own Sheets</p>
+                </div>
+                <button onClick={onLogout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-white/50 hover:bg-black/15 hover:text-white/80">
+                  <LogOut className="w-4 h-4" /> Logout
+                </button>
+              </div>
+            </aside>
+          </div>
+        )}
 
         <Toaster position="top-right" />
       </div>
@@ -273,17 +358,27 @@ function PlanBApp({ onLogout }: { onLogout: () => void }) {
   return (
     <>
       <Splash visible={splash} />
-      <div className="flex h-screen w-screen overflow-hidden" style={{ backgroundColor: '#0ea5e9' }}>
+      <div className="flex h-[100dvh] w-screen overflow-hidden" style={{ backgroundColor: '#0ea5e9' }}>
+        {/* Desktop sidebar (hidden on mobile via Sidebar component) */}
         <Sidebar
           currentPage={tambola.currentPage}
           onPageChange={tambola.setCurrentPage}
           pendingCount={tambola.stats.pendingOrders}
           onLogout={onLogout}
         />
+
         <div className="flex flex-col flex-1 overflow-hidden">
           <Header tambola={tambola} />
-          <main className="flex-1 overflow-auto p-6">{renderPage()}</main>
+          <main className="flex-1 overflow-auto p-4 md:p-6 pb-20 md:pb-6">{renderPage()}</main>
         </div>
+
+        {/* Mobile bottom nav */}
+        <MobileBottomNav
+          currentPage={tambola.currentPage}
+          onPageChange={tambola.setCurrentPage}
+          pendingCount={tambola.stats.pendingOrders}
+        />
+
         <Toaster position="top-right" />
       </div>
     </>
@@ -301,14 +396,8 @@ function GatedApp() {
     setSession(null);
   };
 
-  if (!session) {
-    return <ApiKeyLogin onSuccess={setSession} />;
-  }
-
-  if (session.operator.plan === 'own-sheets') {
-    return <PlanAApp session={session} onLogout={handleLogout} />;
-  }
-
+  if (!session) return <ApiKeyLogin onSuccess={setSession} />;
+  if (session.operator.plan === 'own-sheets') return <PlanAApp session={session} onLogout={handleLogout} />;
   return <PlanBApp onLogout={handleLogout} />;
 }
 
