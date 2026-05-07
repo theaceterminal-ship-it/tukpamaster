@@ -21,6 +21,7 @@ import { GameHistory } from '@/components/history/GameHistory';
 import { Marketplace } from '@/components/marketplace/Marketplace';
 import { PendingPayments } from '@/components/payments/PendingPayments';
 import { Settings } from '@/components/settings/Settings';
+import { GamesHome } from '@/components/marketplace/GamesHome';
 import { PlanALiveGame } from '@/components/plan-a/PlanALiveGame';
 import { SheetLibrary } from '@/components/plan-a/SheetLibrary';
 import { Toaster } from '@/components/ui/sonner';
@@ -33,7 +34,7 @@ type OpSession = { apiKey: string; operator: MktOperator };
 type PlanAPage = 'games' | 'live-game' | 'sheets' | 'profile';
 
 function getSession(): OpSession | null {
-  try { return JSON.parse(sessionStorage.getItem(SESSION_KEY) ?? 'null'); }
+  try { return JSON.parse(localStorage.getItem(SESSION_KEY) ?? 'null'); }
   catch { return null; }
 }
 
@@ -83,7 +84,7 @@ function Login({ onSuccess }: { onSuccess: (s: OpSession) => void }) {
     try {
       const info = await mktGetInfo(k);
       const s: OpSession = { apiKey: k, operator: info.operator };
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(s));
+      localStorage.setItem(SESSION_KEY, JSON.stringify(s));
       if (info.operator.plan === 'generate') localStorage.setItem('tukpa-mkt-api-key', k);
       onSuccess(s);
     } catch (e) {
@@ -168,10 +169,10 @@ function PlanAApp({ session, onLogout }: { session: OpSession; onLogout: () => v
 
   function renderPage() {
     switch (page) {
-      case 'games':     return <Settings apiKey={session.apiKey} initOperator={session.operator} />;
+      case 'games':     return <GamesHome apiKey={session.apiKey} initialOperator={session.operator} />;
       case 'live-game': return <PlanALiveGame apiKey={session.apiKey} />;
       case 'sheets':    return <SheetLibrary apiKey={session.apiKey} />;
-      case 'profile':   return <Settings apiKey={session.apiKey} initOperator={session.operator} initTab="profile" onLogout={onLogout} />;
+      case 'profile':   return <Settings apiKey={session.apiKey} initOperator={session.operator} onLogout={onLogout} />;
     }
   }
 
@@ -288,8 +289,8 @@ function PlanBApp({ session, onLogout }: { session: OpSession; onLogout: () => v
       case 'history':          return <GameHistory tambola={tambola} />;
       case 'marketplace':      return <Marketplace />;
       case 'pending-payments': return <PendingPayments tambola={tambola} />;
-      case 'settings':         return <Settings tambola={tambola} />;
-      case 'profile':          return <Settings tambola={tambola} initTab="profile" onLogout={onLogout} />;
+      case 'settings':         return <GamesHome apiKey={tambola.mktApiKey ?? ''} />;
+      case 'profile':          return <Settings tambola={tambola} onLogout={onLogout} />;
       default:                 return <Dashboard tambola={tambola} />;
     }
   };
@@ -401,7 +402,7 @@ function PlanBApp({ session, onLogout }: { session: OpSession; onLogout: () => v
 
 function GatedApp() {
   const [session, setSession] = useState<OpSession | null>(getSession);
-  const logout = () => { sessionStorage.removeItem(SESSION_KEY); localStorage.removeItem('tukpa-mkt-api-key'); setSession(null); };
+  const logout = () => { localStorage.removeItem(SESSION_KEY); localStorage.removeItem('tukpa-mkt-api-key'); setSession(null); };
   if (!session) return <Login onSuccess={setSession} />;
   if (session.operator.plan === 'own-sheets') return <PlanAApp session={session} onLogout={logout} />;
   return <PlanBApp session={session} onLogout={logout} />;
