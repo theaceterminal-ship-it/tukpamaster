@@ -179,7 +179,7 @@ function PlanAApp({ session, onLogout }: { session: OpSession; onLogout: () => v
   return (
     <>
       <Splash visible={splash} />
-      <div className="flex h-[100dvh] w-screen overflow-hidden" style={{ backgroundColor: '#0c1929' }}>
+      <div className="flex h-[100dvh] w-screen overflow-hidden" style={{ backgroundColor: '#082f49' }}>
 
         {/* ── Desktop sidebar ── */}
         <aside className="hidden md:flex w-52 flex-col shrink-0" style={{ background: 'linear-gradient(180deg,#0284c7,#0369a1)' }}>
@@ -300,7 +300,7 @@ function PlanBApp({ session, onLogout }: { session: OpSession; onLogout: () => v
   return (
     <>
       <Splash visible={splash} />
-      <div className="flex h-[100dvh] w-screen overflow-hidden" style={{ backgroundColor: '#0c1929' }}>
+      <div className="flex h-[100dvh] w-screen overflow-hidden" style={{ backgroundColor: '#082f49' }}>
 
         {/* Desktop sidebar */}
         <aside className="hidden md:flex w-52 flex-col shrink-0" style={{ background: 'linear-gradient(180deg,#0284c7,#0369a1)' }}>
