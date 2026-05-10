@@ -40,7 +40,7 @@ export interface MktPurchase {
   gameName: string;
   quantity: number;
   amount: number;
-  status: 'pending' | 'approved';
+  status: 'pending' | 'approved' | 'rejected';
   createdAt: number;
   sheetNums?: number[];
 }
@@ -105,6 +105,10 @@ export async function mktDeleteGame(apiKey: string, gameId: string): Promise<voi
 
 export async function mktApprovePurchase(apiKey: string, purchaseId: string): Promise<void> {
   return post(apiKey, { action: 'approve-purchase', purchaseId });
+}
+
+export async function mktRejectPurchase(apiKey: string, purchaseId: string): Promise<void> {
+  return post(apiKey, { action: 'reject-purchase', purchaseId });
 }
 
 export async function mktCallNumber(

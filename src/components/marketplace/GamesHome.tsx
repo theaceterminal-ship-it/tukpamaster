@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import {
   mktGetInfo, mktGetPurchases, mktAssignSheets,
-  mktSetStatus, mktDeleteGame, mktApprovePurchase,
+  mktSetStatus, mktDeleteGame, mktApprovePurchase, mktRejectPurchase,
   mktSubmitPlatformPayment,
   type MktGame, type MktPurchase, type MktOperator,
 } from '@/services/marketplaceApi';
@@ -30,14 +30,15 @@ export function GamesHome({ apiKey, initialOperator }: Props) {
   const [purchases,     setPurchases]     = useState<MktPurchase[]>([]);
   const [loading,       setLoading]       = useState(false);
   const [wizard,        setWizard]        = useState(false);
-  const [aFrom,         setAFrom]         = useState('');
-  const [aTo,           setATo]           = useState('');
-  const [aLoading,      setALoading]      = useState(false);
+  const [assignFrom,    setAssignFrom]    = useState<Record<string, string>>({});
+  const [assignTo,      setAssignTo]      = useState<Record<string, string>>({});
+  const [aLoading,      setALoading]      = useState<string | null>(null);
   const [adminUpiId,    setAdminUpiId]    = useState('');
   const [paymentModal,  setPaymentModal]  = useState<MktGame | null>(null);
   const [utrInput,      setUtrInput]      = useState('');
   const [paySubmitting, setPaySubmitting] = useState(false);
   const [paySuccess,    setPaySuccess]    = useState(false);
+  const [rejecting,     setRejecting]     = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     if (!apiKey) return;
@@ -55,14 +56,17 @@ export function GamesHome({ apiKey, initialOperator }: Props) {
   const totalPending = purchases.filter(p => p.status === 'pending').length;
 
   async function assignSheets(gameId: string) {
-    if (!apiKey || !aFrom || !aTo) return;
-    setALoading(true);
+    const from = assignFrom[gameId] || '';
+    const to   = assignTo[gameId]   || '';
+    if (!apiKey || !from || !to) return;
+    setALoading(gameId);
     try {
-      const { game } = await mktAssignSheets(apiKey, gameId, +aFrom, +aTo);
+      const { game } = await mktAssignSheets(apiKey, gameId, +from, +to);
       setGames(p => p.map(g => g.id === gameId ? { ...g, sheetCount: game.sheetCount } : g));
-      setAFrom(''); setATo('');
+      setAssignFrom(p => ({ ...p, [gameId]: '' }));
+      setAssignTo(p =>   ({ ...p, [gameId]: '' }));
     } catch (e) { alert(String(e)); }
-    finally { setALoading(false); }
+    finally { setALoading(null); }
   }
 
   async function setStatus(gameId: string, status: 'listed'|'draft'|'ended') {
@@ -111,6 +115,14 @@ export function GamesHome({ apiKey, initialOperator }: Props) {
     if (!apiKey) return;
     try { await mktApprovePurchase(apiKey, purchaseId); setPurchases(p => p.map(x => x.purchaseId === purchaseId ? { ...x, status: 'approved' } : x)); }
     catch (e) { alert(String(e)); }
+  }
+
+  async function reject(purchaseId: string) {
+    if (!apiKey || !confirm('Reject this order?')) return;
+    setRejecting(purchaseId);
+    try { await mktRejectPurchase(apiKey, purchaseId); setPurchases(p => p.map(x => x.purchaseId === purchaseId ? { ...x, status: 'rejected' } : x)); }
+    catch (e) { alert(String(e)); }
+    finally { setRejecting(null); }
   }
 
   if (!apiKey) {
@@ -166,7 +178,7 @@ export function GamesHome({ apiKey, initialOperator }: Props) {
         ) : (
           <div className="grid grid-cols-1 gap-4">
             {games.map(g => {
-              const gp   = purchases.filter(p => p.gameId === g.id);
+              const gp   = purchases.filter(p => p.gameId === g.id && p.status !== 'rejected');
               const pend = gp.filter(p => p.status === 'pending');
               const appr = gp.filter(p => p.status === 'approved');
               const rev  = appr.reduce((s, p) => s + p.amount, 0);
@@ -244,27 +256,35 @@ export function GamesHome({ apiKey, initialOperator }: Props) {
                   </div>
 
                   <div className="border-t divide-y" style={{ borderColor: '#e2e8f0' }}>
-                    {g.status === 'draft' && (
-                      <div className="px-4 py-3">
-                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1">
-                          <TicketCheck className="w-3 h-3" /> Assign Sheet Range
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <input type="number" value={aFrom} onChange={e => setAFrom(e.target.value)} placeholder="From"
-                            className="flex-1 rounded-lg px-2.5 py-2 text-sm text-center text-slate-800 bg-slate-50 border border-slate-200 focus:outline-none focus:border-sky-400" />
-                          <span className="text-slate-300 font-bold">–</span>
-                          <input type="number" value={aTo} onChange={e => setATo(e.target.value)} placeholder="To"
-                            className="flex-1 rounded-lg px-2.5 py-2 text-sm text-center text-slate-800 bg-slate-50 border border-slate-200 focus:outline-none focus:border-sky-400" />
-                          <button onClick={() => assignSheets(g.id)} disabled={aLoading || !aFrom || !aTo}
-                            className="px-3 py-2 rounded-lg text-xs font-bold text-white bg-sky-500 hover:bg-sky-400 disabled:opacity-40 flex items-center gap-1 shrink-0 transition-colors">
-                            {aLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />} Assign
-                          </button>
+                    {g.status === 'draft' && (() => {
+                      const gFrom = assignFrom[g.id] || '';
+                      const gTo   = assignTo[g.id]   || '';
+                      return (
+                        <div className="px-4 py-3">
+                          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+                            <TicketCheck className="w-3 h-3" /> Assign Sheet Range
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <input type="number" value={gFrom}
+                              onChange={e => setAssignFrom(p => ({ ...p, [g.id]: e.target.value }))}
+                              placeholder="From"
+                              className="flex-1 rounded-lg px-2.5 py-2 text-sm text-center text-slate-800 bg-slate-50 border border-slate-200 focus:outline-none focus:border-sky-400" />
+                            <span className="text-slate-300 font-bold">–</span>
+                            <input type="number" value={gTo}
+                              onChange={e => setAssignTo(p => ({ ...p, [g.id]: e.target.value }))}
+                              placeholder="To"
+                              className="flex-1 rounded-lg px-2.5 py-2 text-sm text-center text-slate-800 bg-slate-50 border border-slate-200 focus:outline-none focus:border-sky-400" />
+                            <button onClick={() => assignSheets(g.id)} disabled={aLoading === g.id || !gFrom || !gTo}
+                              className="px-3 py-2 rounded-lg text-xs font-bold text-white bg-sky-500 hover:bg-sky-400 disabled:opacity-40 flex items-center gap-1 shrink-0 transition-colors">
+                              {aLoading === g.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />} Assign
+                            </button>
+                          </div>
+                          {gFrom && gTo && +gTo >= +gFrom && (
+                            <p className="text-xs text-sky-600 font-medium mt-1.5 text-center">{+gTo - +gFrom + 1} sheets will be assigned</p>
+                          )}
                         </div>
-                        {aFrom && aTo && +aTo >= +aFrom && (
-                          <p className="text-xs text-sky-600 font-medium mt-1.5 text-center">{+aTo - +aFrom + 1} sheets will be assigned</p>
-                        )}
-                      </div>
-                    )}
+                      );
+                    })()}
 
                     <div className="px-4 py-3">
                       <div className="flex items-center justify-between mb-2">
@@ -279,14 +299,17 @@ export function GamesHome({ apiKey, initialOperator }: Props) {
                         <div className="space-y-1.5">
                           {[...gp].sort(a => (a.status === 'pending' ? -1 : 1)).map(p => (
                             <div key={p.purchaseId} className={cn('flex items-center gap-3 rounded-xl px-3 py-2',
-                              p.status === 'pending' ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50'
+                              p.status === 'pending'  ? 'bg-amber-50 border border-amber-200' :
+                              p.status === 'rejected' ? 'bg-red-50 border border-red-100' : 'bg-slate-50'
                             )}>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5 flex-wrap">
                                   <p className="font-semibold text-slate-800 text-sm">{p.playerName}</p>
                                   <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-full',
-                                    p.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}>
-                                    {p.status === 'approved' ? '✓ Approved' : '⏳ Pending'}
+                                    p.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
+                                    p.status === 'rejected' ? 'bg-red-100 text-red-600' :
+                                    'bg-amber-100 text-amber-700')}>
+                                    {p.status === 'approved' ? '✓ Approved' : p.status === 'rejected' ? '✗ Rejected' : '⏳ Pending'}
                                   </span>
                                 </div>
                                 <p className="text-[11px] text-slate-400">{p.phone}</p>
@@ -296,10 +319,16 @@ export function GamesHome({ apiKey, initialOperator }: Props) {
                                 </p>
                               </div>
                               {p.status === 'pending' && (
-                                <button onClick={() => approve(p.purchaseId)}
-                                  className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-white bg-sky-500 hover:bg-sky-400 transition-colors">
-                                  <Check className="w-3 h-3" /> Approve
-                                </button>
+                                <div className="shrink-0 flex items-center gap-1">
+                                  <button onClick={() => approve(p.purchaseId)}
+                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-white bg-sky-500 hover:bg-sky-400 transition-colors">
+                                    <Check className="w-3 h-3" /> Approve
+                                  </button>
+                                  <button onClick={() => reject(p.purchaseId)} disabled={rejecting === p.purchaseId}
+                                    className="flex items-center justify-center w-7 h-7 rounded-lg text-red-400 bg-red-50 hover:bg-red-100 disabled:opacity-40 transition-colors">
+                                    {rejecting === p.purchaseId ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+                                  </button>
+                                </div>
                               )}
                             </div>
                           ))}
