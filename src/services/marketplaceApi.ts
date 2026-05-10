@@ -28,6 +28,7 @@ export interface MktGame {
   soldCount: number;
   pricePerSheet: number;
   createdAt: number;
+  platformPaymentStatus: 'pending' | 'verified' | 'rejected' | null;
 }
 
 export interface MktPurchase {
@@ -44,7 +45,16 @@ export interface MktPurchase {
   sheetNums?: number[];
 }
 
-export async function mktGetInfo(apiKey: string): Promise<{ operator: MktOperator; games: MktGame[] }> {
+export interface MktPayment {
+  id: string;
+  status: 'pending' | 'verified' | 'rejected';
+  amount: number;
+  sheetCount: number;
+  utr: string;
+  createdAt: number;
+}
+
+export async function mktGetInfo(apiKey: string): Promise<{ operator: MktOperator; games: MktGame[]; adminUpiId: string }> {
   return post(apiKey, { action: 'get-info' });
 }
 
@@ -136,4 +146,16 @@ export async function mktRegisterSheet(
   url: string,
 ): Promise<{ sheet: { n: number; f: string; u: string } }> {
   return post(apiKey, { action: 'register-sheet', sheetNum, filename, url });
+}
+
+export async function mktSubmitPlatformPayment(
+  apiKey: string, gameId: string, utr: string
+): Promise<{ paymentId: string; amount: number; sheetCount: number }> {
+  return post(apiKey, { action: 'submit-platform-payment', gameId, utr });
+}
+
+export async function mktGetGamePayment(
+  apiKey: string, gameId: string
+): Promise<{ payment: MktPayment | null }> {
+  return post(apiKey, { action: 'get-game-payment', gameId });
 }

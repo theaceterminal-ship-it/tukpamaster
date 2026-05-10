@@ -125,6 +125,11 @@ function Login({ onSuccess }: { onSuccess: (s: OpSession) => void }) {
             {status === 'checking' ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Sign In →'}
           </button>
           <p className="text-[11px] text-slate-400 text-center">Get your key from TungbolaMarket admin → Operators</p>
+          <p className="text-[10px] text-slate-300 text-center">
+            <a href="/terms.html" target="_blank" className="underline hover:text-slate-500">Terms &amp; Conditions</a>
+            {' · '}
+            <a href="/privacy.html" target="_blank" className="underline hover:text-slate-500">Privacy Policy</a>
+          </p>
         </div>
       </div>
       <style>{`@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}`}</style>
