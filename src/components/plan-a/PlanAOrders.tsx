@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   CheckCircle2, XCircle, Clock, RefreshCw, Loader2,
-  Phone, Hash, IndianRupee, ShoppingBag, User,
+  Phone, Hash, IndianRupee, ShoppingBag,
 } from 'lucide-react';
 import {
   mktGetPurchases, mktApprovePurchase, mktRejectPurchase,
