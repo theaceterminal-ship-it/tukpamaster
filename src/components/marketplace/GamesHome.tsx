@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import QRCode from 'qrcode';
 import {
   Globe, Plus, RefreshCw, Loader2, AlertTriangle, Calendar,
   ShoppingBag, Check, Trash2, Wifi, WifiOff,
@@ -39,6 +40,7 @@ export function GamesHome({ apiKey, initialOperator }: Props) {
   const [paySubmitting, setPaySubmitting] = useState(false);
   const [paySuccess,    setPaySuccess]    = useState(false);
   const [rejecting,     setRejecting]     = useState<string | null>(null);
+  const [payQrDataUrl,  setPayQrDataUrl]  = useState('');
 
   const loadData = useCallback(async () => {
     if (!apiKey) return;
@@ -52,6 +54,14 @@ export function GamesHome({ apiKey, initialOperator }: Props) {
   }, [apiKey]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  useEffect(() => {
+    if (!paymentModal || !adminUpiId) { setPayQrDataUrl(''); return; }
+    const fee = (paymentModal.sheetCount * 1.99).toFixed(2);
+    const uri = `upi://pay?pa=${encodeURIComponent(adminUpiId)}&pn=TungbolaMarket&am=${fee}&tn=${encodeURIComponent(`Listing Fee ${paymentModal.name}`)}&cu=INR`;
+    QRCode.toDataURL(uri, { width: 200, margin: 2, color: { dark: '#1e1b4b', light: '#ffffff' } })
+      .then(setPayQrDataUrl).catch(() => setPayQrDataUrl(''));
+  }, [paymentModal?.id, adminUpiId]);
 
   const totalPending = purchases.filter(p => p.status === 'pending').length;
 
@@ -136,9 +146,6 @@ export function GamesHome({ apiKey, initialOperator }: Props) {
   }
 
   const payFee    = paymentModal ? (paymentModal.sheetCount * 1.99).toFixed(2) : '0';
-  const payQrUrl  = paymentModal && adminUpiId
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(`upi://pay?pa=${adminUpiId}&pn=TungbolaMarket&am=${payFee}&tn=Listing Fee ${paymentModal.name}&cu=INR`)}`
-    : '';
   const payUpiUrl = paymentModal && adminUpiId
     ? `https://tungbola-market.vercel.app/api/pay-redirect?pa=${encodeURIComponent(adminUpiId)}&pn=TungbolaMarket&am=${payFee}&tn=${encodeURIComponent(`Listing Fee ${paymentModal.name}`)}`
     : '';
@@ -394,10 +401,10 @@ export function GamesHome({ apiKey, initialOperator }: Props) {
                   </div>
                 </div>
 
-                {adminUpiId && payQrUrl ? (
+                {payQrDataUrl ? (
                   <div className="space-y-3">
                     <div className="flex justify-center">
-                      <img src={payQrUrl} alt="Pay QR" className="w-40 h-40 rounded-2xl border-2 border-violet-200" />
+                      <img src={payQrDataUrl} alt="Pay QR" className="w-44 h-44 rounded-2xl border-2 border-violet-200" />
                     </div>
                     <p className="text-[11px] text-slate-400 text-center">
                       Scan QR · pay to <span className="font-mono font-semibold text-slate-600">{adminUpiId}</span>
@@ -406,6 +413,10 @@ export function GamesHome({ apiKey, initialOperator }: Props) {
                       className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl font-black text-white text-sm bg-violet-600 hover:bg-violet-500 transition-colors">
                       <IndianRupee className="w-4 h-4" /> Open UPI App — ₹{payFee}
                     </a>
+                  </div>
+                ) : adminUpiId ? (
+                  <div className="flex justify-center py-4">
+                    <Loader2 className="w-6 h-6 animate-spin text-violet-400" />
                   </div>
                 ) : (
                   <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-center">
