@@ -386,16 +386,28 @@ export function GamesHome({ apiKey, initialOperator }: Props) {
                   </div>
                 </div>
 
-                {adminUpiId ? (
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center space-y-1">
-                    <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-wide">Pay to UPI</p>
-                    <p className="text-base font-black text-emerald-800 font-mono select-all break-all">{adminUpiId}</p>
-                    <button onClick={() => navigator.clipboard?.writeText(adminUpiId)}
-                      className="text-xs text-emerald-600 underline underline-offset-2">
-                      Copy UPI ID
-                    </button>
-                  </div>
-                ) : (
+                {adminUpiId ? (() => {
+                  const fee      = (paymentModal.sheetCount * 1.99).toFixed(2);
+                  const tn       = encodeURIComponent(`Listing Fee ${paymentModal.name}`);
+                  const pa       = encodeURIComponent(adminUpiId);
+                  const qrData   = encodeURIComponent(`upi://pay?pa=${adminUpiId}&pn=TungbolaMarket&am=${fee}&tn=Listing Fee ${paymentModal.name}&cu=INR`);
+                  const qrUrl    = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${qrData}`;
+                  const upiUrl   = `https://tungbola-market.vercel.app/api/pay-redirect?pa=${pa}&pn=TungbolaMarket&am=${fee}&tn=${tn}`;
+                  return (
+                    <div className="space-y-3">
+                      <div className="flex justify-center">
+                        <img src={qrUrl} alt="Pay QR" className="w-36 h-36 rounded-xl border-2 border-violet-200" />
+                      </div>
+                      <p className="text-[11px] text-slate-400 text-center">
+                        Scan QR · pay to <span className="font-mono font-semibold text-slate-600">{adminUpiId}</span>
+                      </p>
+                      <a href={upiUrl} target="_blank" rel="noreferrer"
+                        className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl font-black text-white text-sm bg-violet-600 hover:bg-violet-500 transition-colors">
+                        <IndianRupee className="w-4 h-4" /> Open UPI App — ₹{fee}
+                      </a>
+                    </div>
+                  );
+                })() : (
                   <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-center">
                     <p className="text-sm text-amber-700 font-medium">Contact admin for UPI payment details.</p>
                   </div>
