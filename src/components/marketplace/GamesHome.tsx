@@ -135,6 +135,14 @@ export function GamesHome({ apiKey, initialOperator }: Props) {
     );
   }
 
+  const payFee    = paymentModal ? (paymentModal.sheetCount * 1.99).toFixed(2) : '0';
+  const payQrUrl  = paymentModal && adminUpiId
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(`upi://pay?pa=${adminUpiId}&pn=TungbolaMarket&am=${payFee}&tn=Listing Fee ${paymentModal.name}&cu=INR`)}`
+    : '';
+  const payUpiUrl = paymentModal && adminUpiId
+    ? `https://tungbola-market.vercel.app/api/pay-redirect?pa=${encodeURIComponent(adminUpiId)}&pn=TungbolaMarket&am=${payFee}&tn=${encodeURIComponent(`Listing Fee ${paymentModal.name}`)}`
+    : '';
+
   return (
     <div className="w-full h-full flex flex-col gap-3">
       {/* Action bar */}
@@ -386,28 +394,20 @@ export function GamesHome({ apiKey, initialOperator }: Props) {
                   </div>
                 </div>
 
-                {adminUpiId ? (() => {
-                  const fee      = (paymentModal.sheetCount * 1.99).toFixed(2);
-                  const tn       = encodeURIComponent(`Listing Fee ${paymentModal.name}`);
-                  const pa       = encodeURIComponent(adminUpiId);
-                  const qrData   = encodeURIComponent(`upi://pay?pa=${adminUpiId}&pn=TungbolaMarket&am=${fee}&tn=Listing Fee ${paymentModal.name}&cu=INR`);
-                  const qrUrl    = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${qrData}`;
-                  const upiUrl   = `https://tungbola-market.vercel.app/api/pay-redirect?pa=${pa}&pn=TungbolaMarket&am=${fee}&tn=${tn}`;
-                  return (
-                    <div className="space-y-3">
-                      <div className="flex justify-center">
-                        <img src={qrUrl} alt="Pay QR" className="w-36 h-36 rounded-xl border-2 border-violet-200" />
-                      </div>
-                      <p className="text-[11px] text-slate-400 text-center">
-                        Scan QR · pay to <span className="font-mono font-semibold text-slate-600">{adminUpiId}</span>
-                      </p>
-                      <a href={upiUrl} target="_blank" rel="noreferrer"
-                        className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl font-black text-white text-sm bg-violet-600 hover:bg-violet-500 transition-colors">
-                        <IndianRupee className="w-4 h-4" /> Open UPI App — ₹{fee}
-                      </a>
+                {adminUpiId && payQrUrl ? (
+                  <div className="space-y-3">
+                    <div className="flex justify-center">
+                      <img src={payQrUrl} alt="Pay QR" className="w-40 h-40 rounded-2xl border-2 border-violet-200" />
                     </div>
-                  );
-                })() : (
+                    <p className="text-[11px] text-slate-400 text-center">
+                      Scan QR · pay to <span className="font-mono font-semibold text-slate-600">{adminUpiId}</span>
+                    </p>
+                    <a href={payUpiUrl} target="_blank" rel="noreferrer"
+                      className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl font-black text-white text-sm bg-violet-600 hover:bg-violet-500 transition-colors">
+                      <IndianRupee className="w-4 h-4" /> Open UPI App — ₹{payFee}
+                    </a>
+                  </div>
+                ) : (
                   <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-center">
                     <p className="text-sm text-amber-700 font-medium">Contact admin for UPI payment details.</p>
                   </div>
