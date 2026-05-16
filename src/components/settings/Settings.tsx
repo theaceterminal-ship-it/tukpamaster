@@ -1,12 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import QRCode from 'qrcode';
 import {
   CheckCircle, XCircle, Loader2, Link2, Unlink, Globe,
-  User, Phone, QrCode, Trash2, Check,
-  Image as ImageIcon, LogOut, Wifi, WifiOff,
+  User, Phone, Check, LogOut, Wifi, WifiOff, IndianRupee,
 } from 'lucide-react';
 import type { useTambola } from '@/hooks/useTambola';
 import {
-  mktGetInfo,
+  mktGetInfo, mktUpdateProfile,
   type MktOperator,
 } from '@/services/marketplaceApi';
 import { cn } from '@/lib/utils';
@@ -18,9 +18,6 @@ interface Props {
   onLogout?: () => void;
 }
 
-function lsGet(k: string) { try { return JSON.parse(localStorage.getItem(k) ?? 'null') ?? {}; } catch { return {}; } }
-function lsSet(k: string, v: object) { localStorage.setItem(k, JSON.stringify(v)); }
-
 export function Settings({ tambola, apiKey, initOperator, onLogout }: Props) {
   const mktKey    = apiKey ?? tambola?.mktApiKey ?? '';
   const setMktKey = tambola?.setMktApiKey ?? (() => {});
@@ -30,20 +27,34 @@ export function Settings({ tambola, apiKey, initOperator, onLogout }: Props) {
   const [keyStatus, setKeyStatus] = useState<'idle'|'checking'|'ok'|'error'>(mktKey ? 'ok' : 'idle');
   const [keyErr,    setKeyErr]    = useState('');
   const [operator,  setOperator]  = useState<MktOperator | null>(initOperator ?? null);
-  const [pName,  setPName]  = useState('');
-  const [pPhone, setPPhone] = useState('');
-  const [pQr,    setPQr]    = useState<string | null>(null);
-  const [pSaved, setPSaved] = useState(false);
-  const qrRef = useRef<HTMLInputElement>(null);
+
+  const [pName,    setPName]    = useState('');
+  const [pPhone,   setPPhone]   = useState('');
+  const [pUpiId,   setPUpiId]   = useState('');
+  const [pSaving,  setPSaving]  = useState(false);
+  const [pSaved,   setPSaved]   = useState(false);
+  const [pErr,     setPErr]     = useState('');
+  const [qrDataUrl, setQrDataUrl] = useState('');
 
   const connected = keyStatus === 'ok' && !!mktKey;
+  const activeOp  = operator ?? initOperator ?? null;
 
+  // Populate form from operator data (server-side truth)
   useEffect(() => {
-    const id = initOperator?.id ?? operator?.id;
-    if (!id) return;
-    const p = lsGet(`tukpa-profile-${id}`);
-    setPName(p.displayName ?? ''); setPPhone(p.supportPhone ?? ''); setPQr(p.qrBase64 ?? null);
-  }, [initOperator?.id, operator?.id]);
+    if (!activeOp) return;
+    setPName(activeOp.displayName ?? '');
+    setPPhone(activeOp.supportPhone ?? '');
+    setPUpiId(activeOp.upiId ?? '');
+  }, [activeOp?.id]);
+
+  // Live QR preview
+  useEffect(() => {
+    const id = pUpiId.trim();
+    if (!id) { setQrDataUrl(''); return; }
+    const uri = `upi://pay?pa=${encodeURIComponent(id)}&pn=${encodeURIComponent(pName.trim() || id)}&cu=INR`;
+    QRCode.toDataURL(uri, { width: 180, margin: 2, color: { dark: '#1e293b', light: '#ffffff' } })
+      .then(setQrDataUrl).catch(() => setQrDataUrl(''));
+  }, [pUpiId, pName]);
 
   async function connect() {
     const k = inputKey.trim(); if (!k) return;
@@ -58,11 +69,30 @@ export function Settings({ tambola, apiKey, initOperator, onLogout }: Props) {
     setMktKey(''); setInputKey(''); setKeyStatus('idle'); setOperator(null);
   }
 
-  function saveProfile() {
-    const id = initOperator?.id ?? operator?.id;
-    if (!id) return;
-    lsSet(`tukpa-profile-${id}`, { displayName: pName, supportPhone: pPhone, qrBase64: pQr });
-    setPSaved(true); setTimeout(() => setPSaved(false), 2000);
+  async function saveProfile() {
+    const key = mktKey;
+    if (!key || !activeOp) return;
+    setPSaving(true); setPErr(''); setPSaved(false);
+    try {
+      await mktUpdateProfile(key, {
+        displayName:  pName.trim()  || null,
+        supportPhone: pPhone.trim() || null,
+        upiId:        pUpiId.trim() || null,
+      });
+      // Keep Plan B local UPI state in sync
+      if (tambola?.setUpiSettings) {
+        await tambola.setUpiSettings({
+          upiId:        pUpiId.trim(),
+          merchantName: pName.trim(),
+          whatsappNumber: tambola.upiSettings?.whatsappNumber,
+        });
+      }
+      setPSaved(true); setTimeout(() => setPSaved(false), 2500);
+    } catch (e) {
+      setPErr(e instanceof Error ? e.message : 'Save failed');
+    } finally {
+      setPSaving(false);
+    }
   }
 
   return (
@@ -70,14 +100,14 @@ export function Settings({ tambola, apiKey, initOperator, onLogout }: Props) {
       <div className="max-w-lg space-y-3 pb-4">
 
         {/* Operator badge */}
-        {(operator ?? initOperator) && (
+        {activeOp && (
           <div className="flex items-center gap-3 rounded-2xl px-4 py-3" style={{ backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
             <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center shrink-0">
               <User className="w-5 h-5 text-white/40" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-black text-white text-sm truncate">{(operator ?? initOperator)!.name}</p>
-              <p className="text-white/30 text-xs">{(operator ?? initOperator)!.plan === 'own-sheets' ? 'Plan A · Own Sheets' : 'Plan B · Generate'}</p>
+              <p className="font-black text-white text-sm truncate">{activeOp.name}</p>
+              <p className="text-white/30 text-xs">{activeOp.plan === 'own-sheets' ? 'Plan A · Own Sheets' : 'Plan B · Generate'}</p>
             </div>
             {connected
               ? <Wifi className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -88,7 +118,7 @@ export function Settings({ tambola, apiKey, initOperator, onLogout }: Props) {
 
         {/* Profile form */}
         <div className="rounded-2xl p-5 space-y-4" style={{ backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
-          <p className="text-xs font-bold text-white/40 uppercase tracking-widest">Display Info</p>
+          <p className="text-xs font-bold text-white/40 uppercase tracking-widest">Your Profile</p>
 
           <div className="space-y-1">
             <label className="text-xs text-white/50 font-semibold block">Business / Display Name</label>
@@ -104,37 +134,24 @@ export function Settings({ tambola, apiKey, initOperator, onLogout }: Props) {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs text-white/50 font-semibold flex items-center gap-1"><QrCode className="w-3 h-3" /> Payment QR Code</label>
-            <p className="text-[11px] text-white/25 mb-2">Your UPI / bank QR — players scan this to pay for sheets.</p>
-            {pQr ? (
-              <div className="flex items-start gap-3">
-                <img src={pQr} alt="QR" className="w-28 h-28 object-contain rounded-xl bg-white p-1.5 shrink-0" />
-                <div className="space-y-2 pt-1">
-                  <button onClick={() => qrRef.current?.click()} className="text-xs text-sky-400 font-semibold flex items-center gap-1">
-                    <ImageIcon className="w-3 h-3" /> Replace
-                  </button>
-                  <button onClick={() => setPQr(null)} className="text-xs text-red-400 font-semibold flex items-center gap-1">
-                    <Trash2 className="w-3 h-3" /> Remove
-                  </button>
-                </div>
+            <label className="text-xs text-white/50 font-semibold flex items-center gap-1"><IndianRupee className="w-3 h-3" /> Your UPI ID</label>
+            <input type="text" value={pUpiId} onChange={e => setPUpiId(e.target.value)} placeholder="yourname@upi"
+              className="w-full rounded-xl px-3 py-2.5 text-sm bg-white/10 border border-white/10 text-white placeholder-white/20 focus:outline-none focus:border-sky-400 font-mono" />
+            <p className="text-[11px] text-white/25">Players scan a QR generated from this ID to pay for your games.</p>
+            {qrDataUrl && (
+              <div className="flex flex-col items-center gap-2 mt-3 p-4 rounded-xl bg-white/5 border border-white/10">
+                <img src={qrDataUrl} alt="UPI QR preview" className="rounded-lg" style={{ width: 180, height: 180 }} />
+                <p className="text-[11px] text-white/30 text-center">Preview QR · Scan to verify UPI ID</p>
               </div>
-            ) : (
-              <button onClick={() => qrRef.current?.click()}
-                className="w-full border-2 border-dashed border-white/10 rounded-xl py-6 flex flex-col items-center gap-2 text-white/25 hover:border-sky-400/40 hover:text-sky-400/60 transition-colors">
-                <QrCode className="w-8 h-8" />
-                <span className="text-xs font-medium">Tap to upload your payment QR code</span>
-              </button>
             )}
-            <input ref={qrRef} type="file" accept="image/*" className="hidden" onChange={e => {
-              const f = e.target.files?.[0]; if (!f) return;
-              const r = new FileReader(); r.onload = () => setPQr(r.result as string); r.readAsDataURL(f);
-            }} />
           </div>
 
-          <button onClick={saveProfile}
+          {pErr && <p className="text-red-400 text-xs flex items-center gap-1"><XCircle className="w-3 h-3" /> {pErr}</p>}
+
+          <button onClick={saveProfile} disabled={pSaving || !activeOp}
             className={cn('w-full py-3 rounded-xl font-bold text-white text-sm flex items-center justify-center gap-2 transition-colors',
-              pSaved ? 'bg-emerald-500' : 'bg-sky-500 hover:bg-sky-400')}>
-            {pSaved ? <><Check className="w-4 h-4" /> Saved!</> : 'Save Profile'}
+              pSaved ? 'bg-emerald-500' : 'bg-sky-500 hover:bg-sky-400 disabled:opacity-40')}>
+            {pSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : pSaved ? <><Check className="w-4 h-4" /> Saved!</> : 'Save Profile'}
           </button>
         </div>
 

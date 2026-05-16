@@ -90,9 +90,11 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
   const [step, setStep] = useState(0);
 
   // Step 1
-  const [name, setName]         = useState('');
-  const [datetime, setDatetime] = useState('');
-  const [joinTime, setJoinTime] = useState('');
+  const [name, setName]           = useState('');
+  const [datetime, setDatetime]   = useState('');
+  const [joinTime, setJoinTime]   = useState('');
+  const [joinLink, setJoinLink]   = useState('');
+  const [joinDetails, setJoinDetails] = useState('');
 
   // Step 2
   const [price, setPrice]               = useState(100);
@@ -185,6 +187,8 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
         gameDate,
         gameDateRaw: datetime || null,
         joinTime: joinTime || null,
+        joinLink: joinLink.trim() || null,
+        joinDetails: joinDetails.trim() || null,
         pricePerSheet: price,
         pricingTiers: variablePricing && tiers.length > 0 ? tiers : undefined,
         description: description.trim() || undefined,
@@ -260,6 +264,27 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
                 className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 [color-scheme:dark]"
               />
               <p className="text-white/30 text-xs mt-1">Time by which players must register</p>
+            </Field>
+
+            <Field label="🔗 Game Joining Link (optional)">
+              <input
+                type="url"
+                value={joinLink}
+                onChange={e => setJoinLink(e.target.value)}
+                placeholder="https://us06web.zoom.us/j/… or WhatsApp link"
+                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/30 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+              />
+              <p className="text-white/30 text-xs mt-1">Sent to players automatically after their order is approved</p>
+            </Field>
+
+            <Field label="📝 Meeting ID, Passcode & Notes (optional)">
+              <textarea
+                value={joinDetails}
+                onChange={e => setJoinDetails(e.target.value)}
+                placeholder={'Meeting ID: 824 4739 3208\nPasscode: 601991\n\nNote: No refund after purchase.'}
+                rows={3}
+                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/30 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 resize-none"
+              />
             </Field>
           </div>
         )}

@@ -236,9 +236,10 @@ export function GamesHome({ apiKey, initialOperator }: Props) {
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {g.status === 'draft' && g.sheetCount > 0 ? (
                         g.platformPaymentStatus === 'pending' ? (
-                          <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                            <Clock className="w-3 h-3" /> Pending verification
-                          </span>
+                          <button onClick={loadData}
+                            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg font-semibold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors">
+                            <Clock className="w-3 h-3" /> Pending verification · tap to refresh
+                          </button>
                         ) : (
                           <button onClick={() => openPaymentModal(g)}
                             className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold text-white bg-emerald-500 hover:bg-emerald-400 transition-colors">

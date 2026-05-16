@@ -17,6 +17,10 @@ export interface MktOperator {
   id: string;
   name: string;
   plan: 'own-sheets' | 'generate';
+  displayName?: string | null;
+  supportPhone?: string | null;
+  upiId?: string | null;
+  telegramChatId?: string | null;
 }
 
 export interface MktGame {
@@ -69,6 +73,8 @@ export async function mktCreateGame(
     gameDate?: string | null;
     gameDateRaw?: string | null;
     joinTime?: string | null;
+    joinLink?: string | null;
+    joinDetails?: string | null;
     pricePerSheet: number;
     pricingTiers?: { qty: number; price: number }[];
     description?: string;
@@ -162,4 +168,11 @@ export async function mktGetGamePayment(
   apiKey: string, gameId: string
 ): Promise<{ payment: MktPayment | null }> {
   return post(apiKey, { action: 'get-game-payment', gameId });
+}
+
+export async function mktUpdateProfile(
+  apiKey: string,
+  profile: { displayName?: string | null; supportPhone?: string | null; upiId?: string | null }
+): Promise<void> {
+  return post(apiKey, { action: 'update-profile', ...profile });
 }
