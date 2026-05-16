@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import QRCode from 'qrcode';
 import {
   CheckCircle, XCircle, Loader2, Link2, Unlink, Globe,
-  User, Phone, Check, LogOut, Wifi, WifiOff, IndianRupee,
+  User, Phone, Check, LogOut, Wifi, WifiOff, IndianRupee, Video,
 } from 'lucide-react';
 import type { useTambola } from '@/hooks/useTambola';
 import {
-  mktGetInfo, mktUpdateProfile,
+  mktGetInfo, mktUpdateProfile, mktZoomAuthUrl, mktZoomDisconnect,
   type MktOperator,
 } from '@/services/marketplaceApi';
 import { cn } from '@/lib/utils';
@@ -35,6 +35,9 @@ export function Settings({ tambola, apiKey, initOperator, onLogout }: Props) {
   const [pSaved,   setPSaved]   = useState(false);
   const [pErr,     setPErr]     = useState('');
   const [qrDataUrl, setQrDataUrl] = useState('');
+  const [zoomConnected, setZoomConnected]   = useState(false);
+  const [zoomWorking,   setZoomWorking]     = useState(false);
+  const [zoomErr,       setZoomErr]         = useState('');
 
   const connected = keyStatus === 'ok' && !!mktKey;
   const activeOp  = operator ?? initOperator ?? null;
@@ -45,7 +48,21 @@ export function Settings({ tambola, apiKey, initOperator, onLogout }: Props) {
     setPName(activeOp.displayName ?? '');
     setPPhone(activeOp.supportPhone ?? '');
     setPUpiId(activeOp.upiId ?? '');
+    setZoomConnected(activeOp.zoomConnected ?? false);
   }, [activeOp?.id]);
+
+  // Handle ?zoom=connected redirect back from Zoom OAuth
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const zoomParam = params.get('zoom');
+    if (zoomParam === 'connected') {
+      setZoomConnected(true);
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (zoomParam === 'error') {
+      setZoomErr(params.get('msg') || 'Zoom connection failed');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   // For Plan B without marketplace connection: populate from local tambola state
   useEffect(() => {
@@ -106,6 +123,31 @@ export function Settings({ tambola, apiKey, initOperator, onLogout }: Props) {
   }
 
   const canSave = isPlanA ? !!activeOp : true;
+
+  async function connectZoom() {
+    if (!mktKey) return;
+    setZoomWorking(true); setZoomErr('');
+    try {
+      const { url } = await mktZoomAuthUrl(mktKey);
+      window.location.href = url;
+    } catch (e) {
+      setZoomErr(e instanceof Error ? e.message : 'Failed');
+      setZoomWorking(false);
+    }
+  }
+
+  async function disconnectZoom() {
+    if (!mktKey) return;
+    setZoomWorking(true);
+    try {
+      await mktZoomDisconnect(mktKey);
+      setZoomConnected(false);
+    } catch (e) {
+      setZoomErr(e instanceof Error ? e.message : 'Failed');
+    } finally {
+      setZoomWorking(false);
+    }
+  }
 
   return (
     <div className="w-full h-full overflow-auto">
@@ -203,6 +245,37 @@ export function Settings({ tambola, apiKey, initOperator, onLogout }: Props) {
                 <p className="text-white/25 text-xs">Get your key from TungbolaMarket admin → Operators tab.</p>
               </>
             )}
+          </div>
+        )}
+
+        {/* Zoom Integration — only when API key is connected */}
+        {!!mktKey && (
+          <div className="rounded-2xl p-5 space-y-3" style={{ backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <p className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-1.5">
+              <Video className="w-3 h-3 text-blue-400" /> Zoom Integration
+            </p>
+            {zoomConnected ? (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <p className="text-sm text-white font-semibold">Zoom account connected</p>
+                </div>
+                <button onClick={disconnectZoom} disabled={zoomWorking}
+                  className="text-xs text-red-400 hover:text-red-300 font-semibold flex items-center gap-1 disabled:opacity-40">
+                  {zoomWorking ? <Loader2 className="w-3 h-3 animate-spin" /> : <Unlink className="w-3 h-3" />} Disconnect
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-[11px] text-white/30">Connect your Zoom account so you can schedule meetings directly when creating games — the join link, Meeting ID and passcode will auto-fill.</p>
+                <button onClick={connectZoom} disabled={zoomWorking}
+                  className="w-full py-2.5 rounded-xl font-bold text-white text-sm flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 transition-colors">
+                  {zoomWorking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Video className="w-4 h-4" />}
+                  Connect Zoom Account
+                </button>
+              </div>
+            )}
+            {zoomErr && <p className="text-red-400 text-xs flex items-center gap-1"><XCircle className="w-3 h-3" /> {zoomErr}</p>}
           </div>
         )}
 

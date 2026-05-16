@@ -21,6 +21,7 @@ export interface MktOperator {
   supportPhone?: string | null;
   upiId?: string | null;
   telegramChatId?: string | null;
+  zoomConnected?: boolean;
 }
 
 export interface MktGame {
@@ -118,6 +119,21 @@ export async function mktApprovePurchase(apiKey: string, purchaseId: string): Pr
 
 export async function mktRejectPurchase(apiKey: string, purchaseId: string): Promise<void> {
   return post(apiKey, { action: 'reject-purchase', purchaseId });
+}
+
+export async function mktZoomAuthUrl(apiKey: string): Promise<{ url: string }> {
+  return post(apiKey, { action: 'zoom-auth-url' });
+}
+
+export async function mktZoomCreateMeeting(
+  apiKey: string,
+  opts: { topic: string; startTime: string; duration?: number }
+): Promise<{ joinUrl: string; meetingId: string; passcode: string; joinDetails: string }> {
+  return post(apiKey, { action: 'zoom-create-meeting', ...opts });
+}
+
+export async function mktZoomDisconnect(apiKey: string): Promise<void> {
+  return post(apiKey, { action: 'zoom-disconnect' });
 }
 
 export async function mktCallNumber(

@@ -1,11 +1,11 @@
 import { useState, useRef } from 'react';
 import {
   ArrowLeft, ArrowRight, Check, Loader2, Plus, Trash2,
-  Trophy, Image, Calendar, IndianRupee, Layers,
+  Trophy, Image, Calendar, IndianRupee, Layers, Video,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
-  mktCreateGame, mktAssignSheets, mktUploadThumbnail,
+  mktCreateGame, mktAssignSheets, mktUploadThumbnail, mktZoomCreateMeeting, mktGetInfo,
   type MktGame,
 } from '@/services/marketplaceApi';
 
@@ -74,8 +74,8 @@ function StepDots({ step, total }: { step: number; total: number }) {
           key={i}
           className={cn(
             'rounded-full transition-all',
-            i < step ? 'w-5 h-2 bg-sky-400' :
-            i === step ? 'w-7 h-2 bg-sky-500' :
+            i < step ? 'w-5 h-2 bg-violet-400' :
+            i === step ? 'w-7 h-2 bg-violet-500' :
             'w-2 h-2 bg-white/20'
           )}
         />
@@ -109,10 +109,13 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
   const [prizes, setPrizes] = useState<Record<string, number>>({ 'full-house': 5000 });
 
   // Step 4
-  const [sheetFrom, setSheetFrom] = useState('');
-  const [sheetTo, setSheetTo]     = useState('');
-  const [saving, setSaving]       = useState(false);
-  const [saveErr, setSaveErr]     = useState('');
+  const [sheetFrom, setSheetFrom]     = useState('');
+  const [sheetTo, setSheetTo]         = useState('');
+  const [saving, setSaving]           = useState(false);
+  const [saveErr, setSaveErr]         = useState('');
+  const [zoomScheduling, setZoomScheduling] = useState(false);
+  const [zoomErr, setZoomErr]         = useState('');
+  const [zoomConnected, setZoomConnected]   = useState<boolean | null>(null);
 
   // ── navigation helpers ──
 
@@ -151,6 +154,34 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
       else n[type] = def;
       return n;
     });
+  }
+
+  // ── zoom meeting ──
+
+  async function checkZoom() {
+    if (zoomConnected !== null) return;
+    try {
+      const info = await mktGetInfo(apiKey);
+      setZoomConnected(info.operator.zoomConnected ?? false);
+    } catch { setZoomConnected(false); }
+  }
+
+  async function scheduleZoom() {
+    if (!datetime) { setZoomErr('Set game date & time first'); return; }
+    setZoomScheduling(true); setZoomErr('');
+    try {
+      const { joinUrl, joinDetails } = await mktZoomCreateMeeting(apiKey, {
+        topic: name.trim() || 'Tambola Game',
+        startTime: datetime,
+        duration: 60,
+      });
+      setJoinLink(joinUrl);
+      setJoinDetails(joinDetails);
+    } catch (e) {
+      setZoomErr(e instanceof Error ? e.message : 'Failed to schedule meeting');
+    } finally {
+      setZoomScheduling(false);
+    }
   }
 
   // ── create game ──
@@ -242,7 +273,7 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
                 value={name}
                 onChange={e => setName(e.target.value)}
                 placeholder="e.g. Sunday Mega Tambola"
-                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/30 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/30 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400"
                 autoFocus
               />
             </Field>
@@ -252,7 +283,7 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
                 type="datetime-local"
                 value={datetime}
                 onChange={e => setDatetime(e.target.value)}
-                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 [color-scheme:dark]"
+                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 [color-scheme:dark]"
               />
             </Field>
 
@@ -261,29 +292,50 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
                 type="time"
                 value={joinTime}
                 onChange={e => setJoinTime(e.target.value)}
-                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 [color-scheme:dark]"
+                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 [color-scheme:dark]"
               />
               <p className="text-white/30 text-xs mt-1">Time by which players must register</p>
             </Field>
 
-            <Field label="🔗 Game Joining Link (optional)">
+            {/* Zoom schedule OR manual link */}
+            <Field label="🔗 Game Joining Link">
+              {/* Zoom one-click button */}
+              <button
+                type="button"
+                onClick={() => { checkZoom(); scheduleZoom(); }}
+                disabled={zoomScheduling || !datetime}
+                className={cn(
+                  'w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-colors mb-2',
+                  zoomConnected === false
+                    ? 'bg-white/5 border border-white/10 text-white/30 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50'
+                )}
+                title={!datetime ? 'Set date & time first' : zoomConnected === false ? 'Connect Zoom in Profile first' : ''}
+              >
+                {zoomScheduling
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <Video className="w-4 h-4" />}
+                {zoomScheduling ? 'Scheduling…' : zoomConnected === false ? 'Zoom not connected — set link manually' : 'Schedule in Zoom'}
+              </button>
+              {zoomErr && <p className="text-red-400 text-xs mb-1">{zoomErr}</p>}
+              {!datetime && <p className="text-amber-400/70 text-xs mb-1">↑ Set game date & time above first</p>}
               <input
                 type="url"
                 value={joinLink}
                 onChange={e => setJoinLink(e.target.value)}
-                placeholder="https://us06web.zoom.us/j/… or WhatsApp link"
-                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/30 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+                placeholder="Auto-filled after scheduling, or paste manually"
+                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/30 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400"
               />
-              <p className="text-white/30 text-xs mt-1">Sent to players automatically after their order is approved</p>
+              <p className="text-white/30 text-xs mt-1">Sent to every player when their order is approved</p>
             </Field>
 
-            <Field label="📝 Meeting ID, Passcode & Notes (optional)">
+            <Field label="📝 Meeting ID, Passcode & Notes">
               <textarea
                 value={joinDetails}
                 onChange={e => setJoinDetails(e.target.value)}
-                placeholder={'Meeting ID: 824 4739 3208\nPasscode: 601991\n\nNote: No refund after purchase.'}
+                placeholder={'Auto-filled after scheduling, or type manually:\nMeeting ID: 824 4739 3208\nPasscode: 601991'}
                 rows={3}
-                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/30 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 resize-none"
+                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/30 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 resize-none"
               />
             </Field>
           </div>
@@ -300,21 +352,21 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
                 value={price}
                 onChange={e => setPrice(Number(e.target.value))}
                 min={1}
-                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white text-2xl font-bold focus:outline-none focus:ring-2 focus:ring-sky-400 [color-scheme:dark]"
+                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white text-2xl font-bold focus:outline-none focus:ring-2 focus:ring-violet-400 [color-scheme:dark]"
               />
             </Field>
 
             {/* Variable pricing toggle */}
             <div className="flex items-center justify-between bg-white/5 rounded-xl px-4 py-3">
               <div className="flex items-center gap-2">
-                <Layers className="w-4 h-4 text-sky-400" />
+                <Layers className="w-4 h-4 text-violet-400" />
                 <span className="text-white text-sm font-semibold">Variable Pricing</span>
               </div>
               <button
                 onClick={() => setVariable(v => !v)}
                 className={cn(
                   'w-12 h-6 rounded-full transition-colors relative',
-                  variablePricing ? 'bg-sky-500' : 'bg-white/20'
+                  variablePricing ? 'bg-violet-500' : 'bg-white/20'
                 )}
               >
                 <span className={cn(
@@ -354,7 +406,7 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
                 ))}
                 <button
                   onClick={addTier}
-                  className="flex items-center gap-2 text-sky-400 text-sm font-semibold hover:text-sky-300 transition-colors"
+                  className="flex items-center gap-2 text-violet-400 text-sm font-semibold hover:text-violet-300 transition-colors"
                 >
                   <Plus className="w-4 h-4" /> Add Tier
                 </button>
@@ -365,7 +417,7 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
             <Field label="Game Thumbnail">
               <button
                 onClick={() => fileRef.current?.click()}
-                className="w-full bg-white/5 border-2 border-dashed border-white/20 rounded-xl flex flex-col items-center justify-center gap-2 py-6 hover:border-sky-400/50 transition-colors"
+                className="w-full bg-white/5 border-2 border-dashed border-white/20 rounded-xl flex flex-col items-center justify-center gap-2 py-6 hover:border-violet-400/50 transition-colors"
               >
                 {thumbPreview ? (
                   <img src={thumbPreview} alt="" className="w-32 h-20 object-cover rounded-lg" />
@@ -400,7 +452,7 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
                 onChange={e => setDescription(e.target.value)}
                 placeholder="Add a short description for players…"
                 rows={3}
-                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/30 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 resize-none"
+                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/30 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 resize-none"
               />
             </Field>
           </div>
@@ -421,7 +473,7 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
                     className={cn(
                       'rounded-2xl border-2 p-3 cursor-pointer transition-all select-none',
                       selected
-                        ? 'border-sky-500 bg-sky-500/20'
+                        ? 'border-violet-500 bg-violet-500/20'
                         : 'border-white/10 bg-white/5 hover:border-white/30'
                     )}
                     onClick={() => togglePrize(pt.type, pt.def)}
@@ -443,7 +495,7 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
                           value={prizes[pt.type]}
                           onChange={e => setPrizes(p => ({ ...p, [pt.type]: Number(e.target.value) }))}
                           min={0}
-                          className="w-full bg-white/10 border border-sky-400/40 rounded-lg px-2 py-1 text-white text-sm font-bold focus:outline-none focus:ring-1 focus:ring-sky-400 [color-scheme:dark]"
+                          className="w-full bg-white/10 border border-violet-400/40 rounded-lg px-2 py-1 text-white text-sm font-bold focus:outline-none focus:ring-1 focus:ring-violet-400 [color-scheme:dark]"
                         />
                       </div>
                     )}
@@ -490,7 +542,7 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
                   onChange={e => setSheetFrom(e.target.value)}
                   placeholder="From"
                   min={1}
-                  className="flex-1 bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white text-center font-bold focus:outline-none focus:ring-2 focus:ring-sky-400 [color-scheme:dark]"
+                  className="flex-1 bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white text-center font-bold focus:outline-none focus:ring-2 focus:ring-violet-400 [color-scheme:dark]"
                 />
                 <span className="text-white/30 text-lg font-bold">–</span>
                 <input
@@ -499,11 +551,11 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
                   onChange={e => setSheetTo(e.target.value)}
                   placeholder="To"
                   min={1}
-                  className="flex-1 bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white text-center font-bold focus:outline-none focus:ring-2 focus:ring-sky-400 [color-scheme:dark]"
+                  className="flex-1 bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white text-center font-bold focus:outline-none focus:ring-2 focus:ring-violet-400 [color-scheme:dark]"
                 />
               </div>
               {sheetFrom && sheetTo && Number(sheetTo) >= Number(sheetFrom) && (
-                <p className="text-sky-400 text-xs text-center mt-2 font-semibold">
+                <p className="text-violet-400 text-xs text-center mt-2 font-semibold">
                   {Number(sheetTo) - Number(sheetFrom) + 1} sheets will be assigned
                 </p>
               )}
@@ -560,7 +612,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function SectionHead({ icon, title }: { icon: React.ReactNode; title: string }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-sky-400">{icon}</span>
+      <span className="text-violet-400">{icon}</span>
       <h3 className="text-white font-black text-lg">{title}</h3>
     </div>
   );
