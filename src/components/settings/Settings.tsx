@@ -39,13 +39,20 @@ export function Settings({ tambola, apiKey, initOperator, onLogout }: Props) {
   const connected = keyStatus === 'ok' && !!mktKey;
   const activeOp  = operator ?? initOperator ?? null;
 
-  // Populate form from operator data (server-side truth)
+  // Populate form from operator data (server-side truth, takes priority)
   useEffect(() => {
     if (!activeOp) return;
     setPName(activeOp.displayName ?? '');
     setPPhone(activeOp.supportPhone ?? '');
     setPUpiId(activeOp.upiId ?? '');
   }, [activeOp?.id]);
+
+  // For Plan B without marketplace connection: populate from local tambola state
+  useEffect(() => {
+    if (activeOp || isPlanA) return;
+    if (tambola?.upiSettings?.upiId) setPUpiId(tambola.upiSettings.upiId);
+    if (tambola?.upiSettings?.merchantName) setPName(tambola.upiSettings.merchantName);
+  }, []);
 
   // Live QR preview
   useEffect(() => {
@@ -70,21 +77,24 @@ export function Settings({ tambola, apiKey, initOperator, onLogout }: Props) {
   }
 
   async function saveProfile() {
-    const key = mktKey;
-    if (!key || !activeOp) return;
+    const canApi   = !!mktKey && !!activeOp;
+    const canLocal = !isPlanA && !!tambola?.setUpiSettings;
+    if (!canApi && !canLocal) return;
+
     setPSaving(true); setPErr(''); setPSaved(false);
     try {
-      await mktUpdateProfile(key, {
-        displayName:  pName.trim()  || null,
-        supportPhone: pPhone.trim() || null,
-        upiId:        pUpiId.trim() || null,
-      });
-      // Keep Plan B local UPI state in sync
-      if (tambola?.setUpiSettings) {
-        await tambola.setUpiSettings({
+      if (canApi) {
+        await mktUpdateProfile(mktKey, {
+          displayName:  pName.trim()  || null,
+          supportPhone: pPhone.trim() || null,
+          upiId:        pUpiId.trim() || null,
+        });
+      }
+      if (canLocal) {
+        await tambola!.setUpiSettings({
           upiId:        pUpiId.trim(),
           merchantName: pName.trim(),
-          whatsappNumber: tambola.upiSettings?.whatsappNumber,
+          whatsappNumber: tambola!.upiSettings?.whatsappNumber,
         });
       }
       setPSaved(true); setTimeout(() => setPSaved(false), 2500);
@@ -94,6 +104,8 @@ export function Settings({ tambola, apiKey, initOperator, onLogout }: Props) {
       setPSaving(false);
     }
   }
+
+  const canSave = isPlanA ? !!activeOp : true;
 
   return (
     <div className="w-full h-full overflow-auto">
@@ -123,20 +135,20 @@ export function Settings({ tambola, apiKey, initOperator, onLogout }: Props) {
           <div className="space-y-1">
             <label className="text-xs text-white/50 font-semibold block">Business / Display Name</label>
             <input type="text" value={pName} onChange={e => setPName(e.target.value)} placeholder="Shown to players in listings"
-              className="w-full rounded-xl px-3 py-2.5 text-sm bg-white/10 border border-white/10 text-white placeholder-white/20 focus:outline-none focus:border-sky-400" />
+              className="w-full rounded-xl px-3 py-2.5 text-sm bg-white/10 border border-white/10 text-white placeholder-white/20 focus:outline-none focus:border-violet-400" />
           </div>
 
           <div className="space-y-1">
             <label className="text-xs text-white/50 font-semibold flex items-center gap-1"><Phone className="w-3 h-3" /> Support Phone</label>
             <input type="tel" value={pPhone} onChange={e => setPPhone(e.target.value)} placeholder="+91 98765 43210"
-              className="w-full rounded-xl px-3 py-2.5 text-sm bg-white/10 border border-white/10 text-white placeholder-white/20 focus:outline-none focus:border-sky-400" />
+              className="w-full rounded-xl px-3 py-2.5 text-sm bg-white/10 border border-white/10 text-white placeholder-white/20 focus:outline-none focus:border-violet-400" />
             <p className="text-[11px] text-white/25">Players see this number when they need help.</p>
           </div>
 
           <div className="space-y-1">
             <label className="text-xs text-white/50 font-semibold flex items-center gap-1"><IndianRupee className="w-3 h-3" /> Your UPI ID</label>
             <input type="text" value={pUpiId} onChange={e => setPUpiId(e.target.value)} placeholder="yourname@upi"
-              className="w-full rounded-xl px-3 py-2.5 text-sm bg-white/10 border border-white/10 text-white placeholder-white/20 focus:outline-none focus:border-sky-400 font-mono" />
+              className="w-full rounded-xl px-3 py-2.5 text-sm bg-white/10 border border-white/10 text-white placeholder-white/20 focus:outline-none focus:border-violet-400 font-mono" />
             <p className="text-[11px] text-white/25">Players scan a QR generated from this ID to pay for your games.</p>
             {qrDataUrl && (
               <div className="flex flex-col items-center gap-2 mt-3 p-4 rounded-xl bg-white/5 border border-white/10">
@@ -148,18 +160,21 @@ export function Settings({ tambola, apiKey, initOperator, onLogout }: Props) {
 
           {pErr && <p className="text-red-400 text-xs flex items-center gap-1"><XCircle className="w-3 h-3" /> {pErr}</p>}
 
-          <button onClick={saveProfile} disabled={pSaving || !activeOp}
+          <button onClick={saveProfile} disabled={pSaving || !canSave}
             className={cn('w-full py-3 rounded-xl font-bold text-white text-sm flex items-center justify-center gap-2 transition-colors',
-              pSaved ? 'bg-emerald-500' : 'bg-sky-500 hover:bg-sky-400 disabled:opacity-40')}>
+              pSaved ? 'bg-emerald-500' : 'bg-violet-600 hover:bg-violet-500 disabled:opacity-40')}>
             {pSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : pSaved ? <><Check className="w-4 h-4" /> Saved!</> : 'Save Profile'}
           </button>
+          {isPlanA && !activeOp && (
+            <p className="text-[11px] text-white/30 text-center">Connect your API key above to save profile.</p>
+          )}
         </div>
 
         {/* Marketplace connection — Plan B only */}
         {!isPlanA && (
           <div className="rounded-2xl p-5 space-y-4" style={{ backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
             <p className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-1.5">
-              <Globe className="w-3 h-3 text-sky-400" /> Marketplace API Key
+              <Globe className="w-3 h-3 text-violet-400" /> Marketplace API Key
             </p>
 
             {connected && operator ? (
@@ -178,9 +193,9 @@ export function Settings({ tambola, apiKey, initOperator, onLogout }: Props) {
                 <div className="flex gap-2">
                   <input type="password" value={inputKey} onChange={e => setInputKey(e.target.value)} onKeyDown={e => e.key === 'Enter' && connect()}
                     placeholder="Paste your API key…"
-                    className="flex-1 rounded-xl px-3 py-2.5 text-sm font-mono bg-white/10 border border-white/15 text-white placeholder-white/25 focus:outline-none focus:border-sky-400" />
+                    className="flex-1 rounded-xl px-3 py-2.5 text-sm font-mono bg-white/10 border border-white/15 text-white placeholder-white/25 focus:outline-none focus:border-violet-400" />
                   <button onClick={connect} disabled={keyStatus === 'checking' || !inputKey.trim()}
-                    className="px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-sky-500 hover:bg-sky-400 disabled:opacity-40 flex items-center gap-1.5 shrink-0 transition-colors">
+                    className="px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-40 flex items-center gap-1.5 shrink-0 transition-colors">
                     {keyStatus === 'checking' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />} Connect
                   </button>
                 </div>

@@ -22,7 +22,7 @@ html, body, #root {
   height: 100%;
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
-  background-color: #0369a1; /* prevents flash before React mounts */
+  background-color: #2e1065; /* prevents flash before React mounts */
 }
 
 @layer base {

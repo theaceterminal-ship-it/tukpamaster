@@ -46,7 +46,10 @@ export interface MktPurchase {
   amount: number;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: number;
-  sheetNums?: number[];
+  approvedAt?: number | null;
+  sheetNums?: number[] | null;
+  utr?: string | null;
+  downloadToken?: string | null;
 }
 
 export interface MktPayment {

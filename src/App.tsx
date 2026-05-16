@@ -3,7 +3,7 @@ import { Routes, Route } from 'react-router-dom';
 import {
   Dice5, Eye, EyeOff, Loader2, Globe, Radio, Upload,
   Menu, X, UserCircle2, LayoutDashboard, Users, Ticket,
-  ClipboardList, History, UserCircle, ShoppingBag,
+  ClipboardList, History, UserCircle, ShoppingBag, ListOrdered,
 } from 'lucide-react';
 import { mktGetInfo, type MktOperator } from '@/services/marketplaceApi';
 import { useTambola } from '@/hooks/useTambola';
@@ -24,6 +24,7 @@ import { Settings } from '@/components/settings/Settings';
 import { GamesHome } from '@/components/marketplace/GamesHome';
 import { PlanALiveGame } from '@/components/plan-a/PlanALiveGame';
 import { SheetLibrary } from '@/components/plan-a/SheetLibrary';
+import { PlanAOrders } from '@/components/plan-a/PlanAOrders';
 import { Toaster } from '@/components/ui/sonner';
 import { cn } from '@/lib/utils';
 import type { AppPage } from '@/types';
@@ -31,7 +32,7 @@ import './App.css';
 
 const SESSION_KEY = 'tukpa-op-v2';
 type OpSession = { apiKey: string; operator: MktOperator };
-type PlanAPage = 'games' | 'live-game' | 'sheets' | 'profile';
+type PlanAPage = 'games' | 'orders' | 'live-game' | 'sheets' | 'profile';
 
 function getSession(): OpSession | null {
   try { return JSON.parse(localStorage.getItem(SESSION_KEY) ?? 'null'); }
@@ -41,10 +42,11 @@ function getSession(): OpSession | null {
 // ── Shared nav config ─────────────────────────────────────────────────────────
 
 const PLAN_A_NAV: { page: PlanAPage; label: string; short: string; icon: React.ElementType }[] = [
-  { page: 'games',     label: 'My Games',      short: 'Games',   icon: Globe       },
-  { page: 'live-game', label: 'Live Game',      short: 'Live',    icon: Radio       },
-  { page: 'sheets',    label: 'Sheet Library',  short: 'Sheets',  icon: Upload      },
-  { page: 'profile',   label: 'Profile',        short: 'Profile', icon: UserCircle2 },
+  { page: 'games',     label: 'My Games',      short: 'Games',   icon: Globe        },
+  { page: 'orders',    label: 'Orders',         short: 'Orders',  icon: ListOrdered  },
+  { page: 'live-game', label: 'Live Game',      short: 'Live',    icon: Radio        },
+  { page: 'sheets',    label: 'Sheet Library',  short: 'Sheets',  icon: Upload       },
+  { page: 'profile',   label: 'Profile',        short: 'Profile', icon: UserCircle2  },
 ];
 
 const PLAN_B_SIDE: { page: AppPage; label: string; icon: React.ElementType }[] = [
@@ -96,7 +98,7 @@ function Login({ onSuccess }: { onSuccess: (s: OpSession) => void }) {
   };
 
   return (
-    <div className="min-h-[100dvh] flex items-center justify-center px-4" style={{ background: 'linear-gradient(135deg,#0ea5e9,#0284c7)' }}>
+    <div className="min-h-[100dvh] flex items-center justify-center px-4" style={{ background: 'linear-gradient(135deg,#7c3aed,#4c1d95)' }}>
       <div className="w-full max-w-xs space-y-5">
         <div className="text-center space-y-2">
           <div className="w-16 h-16 rounded-3xl bg-white/20 backdrop-blur flex items-center justify-center mx-auto shadow-lg">
@@ -112,7 +114,7 @@ function Login({ onSuccess }: { onSuccess: (s: OpSession) => void }) {
               onChange={e => { setKey(e.target.value); setStatus('idle'); setErr(''); }}
               onKeyDown={e => e.key === 'Enter' && connect()}
               placeholder="Paste your operator API key…"
-              className="w-full border-2 border-slate-100 focus:border-sky-400 rounded-2xl px-4 py-3 pr-10 text-sm font-mono focus:outline-none transition-colors"
+              className="w-full border-2 border-slate-100 focus:border-violet-400 rounded-2xl px-4 py-3 pr-10 text-sm font-mono focus:outline-none transition-colors"
             />
             <button type="button" onClick={() => setShow(v => !v)} className="absolute right-3 bottom-3 text-slate-300 hover:text-slate-500">
               {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -121,7 +123,7 @@ function Login({ onSuccess }: { onSuccess: (s: OpSession) => void }) {
           {status === 'error' && <p className="text-xs text-red-500 font-medium">✕ {err}</p>}
           <button onClick={connect} disabled={status === 'checking' || !key.trim()}
             className="w-full py-3 rounded-2xl font-black text-white text-sm disabled:opacity-40 transition-opacity"
-            style={{ backgroundColor: '#0284c7' }}>
+            style={{ backgroundColor: '#5b21b6' }}>
             {status === 'checking' ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Sign In →'}
           </button>
           <p className="text-[11px] text-slate-400 text-center">Get your key from TungbolaMarket admin → Operators</p>
@@ -175,6 +177,7 @@ function PlanAApp({ session, onLogout }: { session: OpSession; onLogout: () => v
   function renderPage() {
     switch (page) {
       case 'games':     return <GamesHome apiKey={session.apiKey} initialOperator={session.operator} />;
+      case 'orders':    return <PlanAOrders apiKey={session.apiKey} />;
       case 'live-game': return <PlanALiveGame apiKey={session.apiKey} />;
       case 'sheets':    return <SheetLibrary apiKey={session.apiKey} />;
       case 'profile':   return <Settings apiKey={session.apiKey} initOperator={session.operator} onLogout={onLogout} />;
@@ -184,10 +187,10 @@ function PlanAApp({ session, onLogout }: { session: OpSession; onLogout: () => v
   return (
     <>
       <Splash visible={splash} />
-      <div className="flex h-[100dvh] w-screen overflow-hidden" style={{ backgroundColor: '#0369a1' }}>
+      <div className="flex h-[100dvh] w-screen overflow-hidden" style={{ backgroundColor: '#2e1065' }}>
 
         {/* ── Desktop sidebar ── */}
-        <aside className="hidden md:flex w-52 flex-col shrink-0" style={{ background: 'linear-gradient(180deg,#0284c7,#0369a1)' }}>
+        <aside className="hidden md:flex w-52 flex-col shrink-0" style={{ background: 'linear-gradient(180deg,#5b21b6,#2e1065)' }}>
           <div className="px-4 py-5 border-b border-white/10">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-2xl bg-white/15 flex items-center justify-center shrink-0">
@@ -224,7 +227,7 @@ function PlanAApp({ session, onLogout }: { session: OpSession; onLogout: () => v
 
         {/* ── Mobile bottom nav ── */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex"
-          style={{ background: 'linear-gradient(180deg,#0284c7,#0369a1)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          style={{ background: 'linear-gradient(180deg,#5b21b6,#2e1065)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
           {PLAN_A_NAV.map(n => {
             const active = page === n.page;
             return (
@@ -243,7 +246,7 @@ function PlanAApp({ session, onLogout }: { session: OpSession; onLogout: () => v
         {drawer && (
           <div className="md:hidden fixed inset-0 z-50 flex">
             <div className="absolute inset-0 bg-black/60" onClick={() => setDrawer(false)} />
-            <aside className="relative w-64 flex flex-col" style={{ background: 'linear-gradient(180deg,#0284c7,#0369a1)' }}>
+            <aside className="relative w-64 flex flex-col" style={{ background: 'linear-gradient(180deg,#5b21b6,#2e1065)' }}>
               <div className="px-4 py-4 border-b border-white/10 flex items-center justify-between">
                 <div>
                   <p className="font-black text-white text-sm">TukpaMaster</p>
@@ -305,10 +308,10 @@ function PlanBApp({ session, onLogout }: { session: OpSession; onLogout: () => v
   return (
     <>
       <Splash visible={splash} />
-      <div className="flex h-[100dvh] w-screen overflow-hidden" style={{ backgroundColor: '#0369a1' }}>
+      <div className="flex h-[100dvh] w-screen overflow-hidden" style={{ backgroundColor: '#2e1065' }}>
 
         {/* Desktop sidebar */}
-        <aside className="hidden md:flex w-52 flex-col shrink-0" style={{ background: 'linear-gradient(180deg,#0284c7,#0369a1)' }}>
+        <aside className="hidden md:flex w-52 flex-col shrink-0" style={{ background: 'linear-gradient(180deg,#5b21b6,#2e1065)' }}>
           <div className="px-4 py-5 border-b border-white/10">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-2xl bg-white/15 flex items-center justify-center shrink-0">
@@ -349,7 +352,7 @@ function PlanBApp({ session, onLogout }: { session: OpSession; onLogout: () => v
 
         {/* Mobile bottom nav */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex"
-          style={{ background: 'linear-gradient(180deg,#0284c7,#0369a1)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          style={{ background: 'linear-gradient(180deg,#5b21b6,#2e1065)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
           {PLAN_B_MOB.map(n => {
             const active = tambola.currentPage === n.page;
             const badge = n.page === 'pending-payments' && pending > 0 ? pending : 0;
@@ -377,7 +380,7 @@ function PlanBApp({ session, onLogout }: { session: OpSession; onLogout: () => v
         {drawer && (
           <div className="md:hidden fixed inset-0 z-50 flex">
             <div className="absolute inset-0 bg-black/60" onClick={() => setDrawer(false)} />
-            <aside className="relative w-64 flex flex-col" style={{ background: 'linear-gradient(180deg,#0284c7,#0369a1)' }}>
+            <aside className="relative w-64 flex flex-col" style={{ background: 'linear-gradient(180deg,#5b21b6,#2e1065)' }}>
               <div className="px-4 py-4 border-b border-white/10 flex items-center justify-between">
                 <div>
                   <p className="font-black text-white text-sm">TukpaMaster</p>
