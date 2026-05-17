@@ -62,8 +62,19 @@ export interface MktPayment {
   createdAt: number;
 }
 
-export async function mktGetInfo(apiKey: string): Promise<{ operator: MktOperator; games: MktGame[]; adminUpiId: string }> {
+export async function mktGetInfo(apiKey: string): Promise<{ operator: MktOperator; games: MktGame[] }> {
   return post(apiKey, { action: 'get-info' });
+}
+
+export async function mktSignup(licenseKey: string, name: string, email?: string): Promise<{ operator: MktOperator & { apiKey: string } }> {
+  const r = await fetch('https://tungbola-market.vercel.app/api/marketplace', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'operator-signup', licenseKey, name, email }),
+  });
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+  return data;
 }
 
 export async function mktGetPurchases(apiKey: string): Promise<{ purchases: MktPurchase[] }> {

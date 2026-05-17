@@ -5,7 +5,7 @@ import {
   Menu, X, UserCircle2, LayoutDashboard, Users, Ticket,
   ClipboardList, History, UserCircle, ShoppingBag, ListOrdered,
 } from 'lucide-react';
-import { mktGetInfo, type MktOperator } from '@/services/marketplaceApi';
+import { mktGetInfo, mktSignup, type MktOperator } from '@/services/marketplaceApi';
 import { useTambola } from '@/hooks/useTambola';
 import { Header } from '@/components/layout/Header';
 import { Splash } from '@/components/layout/Splash';
@@ -72,13 +72,28 @@ const PLAN_B_MOB: { page: AppPage; label: string; icon: React.ElementType }[] = 
 // ── Login ─────────────────────────────────────────────────────────────────────
 
 function Login({ onSuccess }: { onSuccess: (s: OpSession) => void }) {
-  const [key, setKey] = useState('');
-  const [show, setShow] = useState(false);
+  const [tab, setTab]       = useState<'login'|'signup'>('login');
+  const [key, setKey]       = useState('');
+  const [licKey, setLicKey] = useState('');
+  const [name, setName]     = useState('');
+  const [email, setEmail]   = useState('');
+  const [show, setShow]     = useState(false);
   const [status, setStatus] = useState<'idle'|'checking'|'error'>('idle');
-  const [err, setErr] = useState('');
-  const [shake, setShake] = useState(false);
-  const ref = useRef<HTMLInputElement>(null);
+  const [err, setErr]       = useState('');
+  const [shake, setShake]   = useState(false);
+  const ref  = useRef<HTMLInputElement>(null);
+  const ref2 = useRef<HTMLInputElement>(null);
+
   useEffect(() => { ref.current?.focus(); }, []);
+  useEffect(() => {
+    setErr(''); setStatus('idle');
+    setTimeout(() => (tab === 'login' ? ref : ref2).current?.focus(), 50);
+  }, [tab]);
+
+  const doShake = (msg: string) => {
+    setStatus('error'); setErr(msg);
+    setShake(true); setTimeout(() => setShake(false), 500);
+  };
 
   const connect = async () => {
     const k = key.trim(); if (!k) return;
@@ -90,12 +105,31 @@ function Login({ onSuccess }: { onSuccess: (s: OpSession) => void }) {
       if (info.operator.plan === 'generate') localStorage.setItem('tukpa-mkt-api-key', k);
       onSuccess(s);
     } catch (e) {
-      setStatus('error'); setErr(e instanceof Error ? e.message : 'Invalid key');
-      setShake(true); setKey('');
-      setTimeout(() => setShake(false), 500);
+      setKey('');
+      doShake(e instanceof Error ? e.message : 'Invalid key');
       setTimeout(() => ref.current?.focus(), 50);
     }
   };
+
+  const signup = async () => {
+    const lk = licKey.trim().toUpperCase();
+    const n  = name.trim();
+    if (!lk) { doShake('Enter your license key'); return; }
+    if (!n)  { doShake('Enter your name'); return; }
+    setStatus('checking'); setErr('');
+    try {
+      const res = await mktSignup(lk, n, email.trim() || undefined);
+      const apiKey = res.operator.apiKey;
+      const info   = await mktGetInfo(apiKey);
+      const s: OpSession = { apiKey, operator: info.operator };
+      localStorage.setItem(SESSION_KEY, JSON.stringify(s));
+      onSuccess(s);
+    } catch (e) {
+      doShake(e instanceof Error ? e.message : 'Signup failed');
+    }
+  };
+
+  const busy = status === 'checking';
 
   return (
     <div className="min-h-[100dvh] flex items-center justify-center px-4" style={{ background: 'linear-gradient(135deg,#7c3aed,#4c1d95)' }}>
@@ -107,31 +141,82 @@ function Login({ onSuccess }: { onSuccess: (s: OpSession) => void }) {
           <h1 className="text-3xl font-black text-white tracking-tight">TukpaMaster</h1>
           <p className="text-white/60 text-sm">Operator Portal</p>
         </div>
-        <div className="bg-white rounded-3xl p-6 shadow-2xl space-y-4" style={shake ? { animation: 'shake .4s ease' } : {}}>
-          <div className="relative">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wide block mb-1.5">API Key</label>
-            <input ref={ref} type={show ? 'text' : 'password'} value={key}
-              onChange={e => { setKey(e.target.value); setStatus('idle'); setErr(''); }}
-              onKeyDown={e => e.key === 'Enter' && connect()}
-              placeholder="Paste your operator API key…"
-              className="w-full border-2 border-slate-100 focus:border-violet-400 rounded-2xl px-4 py-3 pr-10 text-sm font-mono focus:outline-none transition-colors"
-            />
-            <button type="button" onClick={() => setShow(v => !v)} className="absolute right-3 bottom-3 text-slate-300 hover:text-slate-500">
-              {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            </button>
+
+        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden" style={shake ? { animation: 'shake .4s ease' } : {}}>
+          {/* Tab bar */}
+          <div className="flex border-b border-slate-100">
+            {(['login','signup'] as const).map(t => (
+              <button key={t} onClick={() => setTab(t)}
+                className={cn('flex-1 py-3 text-xs font-black uppercase tracking-wide transition-colors',
+                  tab === t ? 'text-violet-700 border-b-2 border-violet-600' : 'text-slate-400 hover:text-slate-600')}>
+                {t === 'login' ? 'Login' : 'New Account'}
+              </button>
+            ))}
           </div>
-          {status === 'error' && <p className="text-xs text-red-500 font-medium">✕ {err}</p>}
-          <button onClick={connect} disabled={status === 'checking' || !key.trim()}
-            className="w-full py-3 rounded-2xl font-black text-white text-sm disabled:opacity-40 transition-opacity"
-            style={{ backgroundColor: '#5b21b6' }}>
-            {status === 'checking' ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Sign In →'}
-          </button>
-          <p className="text-[11px] text-slate-400 text-center">Get your key from TungbolaMarket admin → Operators</p>
-          <p className="text-[10px] text-slate-300 text-center">
-            <a href="/terms.html" target="_blank" className="underline hover:text-slate-500">Terms &amp; Conditions</a>
-            {' · '}
-            <a href="/privacy.html" target="_blank" className="underline hover:text-slate-500">Privacy Policy</a>
-          </p>
+
+          <div className="p-6 space-y-4">
+            {tab === 'login' ? (
+              <>
+                <div className="relative">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wide block mb-1.5">API Key</label>
+                  <input ref={ref} type={show ? 'text' : 'password'} value={key}
+                    onChange={e => { setKey(e.target.value); setStatus('idle'); setErr(''); }}
+                    onKeyDown={e => e.key === 'Enter' && connect()}
+                    placeholder="Paste your operator API key…"
+                    className="w-full border-2 border-slate-100 focus:border-violet-400 rounded-2xl px-4 py-3 pr-10 text-sm font-mono focus:outline-none transition-colors"
+                  />
+                  <button type="button" onClick={() => setShow(v => !v)} className="absolute right-3 bottom-3 text-slate-300 hover:text-slate-500">
+                    {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {status === 'error' && <p className="text-xs text-red-500 font-medium">✕ {err}</p>}
+                <button onClick={connect} disabled={busy || !key.trim()}
+                  className="w-full py-3 rounded-2xl font-black text-white text-sm disabled:opacity-40 transition-opacity"
+                  style={{ backgroundColor: '#5b21b6' }}>
+                  {busy ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Sign In →'}
+                </button>
+              </>
+            ) : (
+              <>
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wide block mb-1.5">License Key</label>
+                  <input ref={ref2} type="text" value={licKey}
+                    onChange={e => { setLicKey(e.target.value.toUpperCase()); setStatus('idle'); setErr(''); }}
+                    onKeyDown={e => e.key === 'Enter' && signup()}
+                    placeholder="TBM-XXXX-XXXX-XXXX"
+                    className="w-full border-2 border-slate-100 focus:border-violet-400 rounded-2xl px-4 py-3 text-sm font-mono focus:outline-none transition-colors uppercase"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wide block mb-1.5">Your Name</label>
+                  <input type="text" value={name}
+                    onChange={e => { setName(e.target.value); setStatus('idle'); setErr(''); }}
+                    placeholder="Operator / Business name"
+                    className="w-full border-2 border-slate-100 focus:border-violet-400 rounded-2xl px-4 py-3 text-sm focus:outline-none transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wide block mb-1.5">Email <span className="text-slate-300 normal-case font-normal">(optional)</span></label>
+                  <input type="email" value={email}
+                    onChange={e => { setEmail(e.target.value); setStatus('idle'); setErr(''); }}
+                    placeholder="you@example.com"
+                    className="w-full border-2 border-slate-100 focus:border-violet-400 rounded-2xl px-4 py-3 text-sm focus:outline-none transition-colors"
+                  />
+                </div>
+                {status === 'error' && <p className="text-xs text-red-500 font-medium">✕ {err}</p>}
+                <button onClick={signup} disabled={busy || !licKey.trim() || !name.trim()}
+                  className="w-full py-3 rounded-2xl font-black text-white text-sm disabled:opacity-40 transition-opacity"
+                  style={{ backgroundColor: '#5b21b6' }}>
+                  {busy ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Create Account →'}
+                </button>
+              </>
+            )}
+            <p className="text-[10px] text-slate-300 text-center">
+              <a href="/terms.html" target="_blank" className="underline hover:text-slate-500">Terms &amp; Conditions</a>
+              {' · '}
+              <a href="/privacy.html" target="_blank" className="underline hover:text-slate-500">Privacy Policy</a>
+            </p>
+          </div>
         </div>
       </div>
       <style>{`@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}`}</style>

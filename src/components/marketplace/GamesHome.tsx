@@ -1,14 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import QRCode from 'qrcode';
 import {
   Globe, Plus, RefreshCw, Loader2, AlertTriangle, Calendar,
   ShoppingBag, Check, Trash2, Wifi, WifiOff,
-  TicketCheck, TrendingUp, X, IndianRupee, Clock,
+  TicketCheck, TrendingUp, X,
 } from 'lucide-react';
 import {
   mktGetInfo, mktGetPurchases, mktAssignSheets,
   mktSetStatus, mktDeleteGame, mktApprovePurchase, mktRejectPurchase,
-  mktSubmitPlatformPayment,
   type MktGame, type MktPurchase, type MktOperator,
 } from '@/services/marketplaceApi';
 import { ScheduleGameWizard } from '@/components/marketplace/ScheduleGameWizard';
@@ -29,18 +27,12 @@ export function GamesHome({ apiKey, initialOperator }: Props) {
   const [operator,      setOperator]      = useState<MktOperator | null>(initialOperator ?? null);
   const [games,         setGames]         = useState<MktGame[]>([]);
   const [purchases,     setPurchases]     = useState<MktPurchase[]>([]);
-  const [loading,       setLoading]       = useState(false);
-  const [wizard,        setWizard]        = useState(false);
-  const [assignFrom,    setAssignFrom]    = useState<Record<string, string>>({});
-  const [assignTo,      setAssignTo]      = useState<Record<string, string>>({});
-  const [aLoading,      setALoading]      = useState<string | null>(null);
-  const [adminUpiId,    setAdminUpiId]    = useState('');
-  const [paymentModal,  setPaymentModal]  = useState<MktGame | null>(null);
-  const [utrInput,      setUtrInput]      = useState('');
-  const [paySubmitting, setPaySubmitting] = useState(false);
-  const [paySuccess,    setPaySuccess]    = useState(false);
-  const [rejecting,     setRejecting]     = useState<string | null>(null);
-  const [payQrDataUrl,  setPayQrDataUrl]  = useState('');
+  const [loading,    setLoading]    = useState(false);
+  const [wizard,     setWizard]     = useState(false);
+  const [assignFrom, setAssignFrom] = useState<Record<string, string>>({});
+  const [assignTo,   setAssignTo]   = useState<Record<string, string>>({});
+  const [aLoading,   setALoading]   = useState<string | null>(null);
+  const [rejecting,  setRejecting]  = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     if (!apiKey) return;
@@ -48,20 +40,11 @@ export function GamesHome({ apiKey, initialOperator }: Props) {
     try {
       const [info, purch] = await Promise.all([mktGetInfo(apiKey), mktGetPurchases(apiKey)]);
       setOperator(info.operator); setGames(info.games); setPurchases(purch.purchases);
-      setAdminUpiId(info.adminUpiId || '');
     } catch { /* silent */ }
     finally { setLoading(false); }
   }, [apiKey]);
 
   useEffect(() => { loadData(); }, [loadData]);
-
-  useEffect(() => {
-    if (!paymentModal || !adminUpiId) { setPayQrDataUrl(''); return; }
-    const fee = (paymentModal.sheetCount * 1.99).toFixed(2);
-    const uri = `upi://pay?pa=${encodeURIComponent(adminUpiId)}&pn=TungbolaMarket&am=${fee}&tn=${encodeURIComponent(`Listing Fee ${paymentModal.name}`)}&cu=INR`;
-    QRCode.toDataURL(uri, { width: 200, margin: 2, color: { dark: '#1e1b4b', light: '#ffffff' } })
-      .then(setPayQrDataUrl).catch(() => setPayQrDataUrl(''));
-  }, [paymentModal?.id, adminUpiId]);
 
   const totalPending = purchases.filter(p => p.status === 'pending').length;
 
@@ -83,33 +66,6 @@ export function GamesHome({ apiKey, initialOperator }: Props) {
     if (!apiKey) return;
     try { await mktSetStatus(apiKey, gameId, status); setGames(p => p.map(g => g.id === gameId ? { ...g, status } : g)); }
     catch (e) { alert(String(e)); }
-  }
-
-  async function submitPayment(gameId: string) {
-    const utr = utrInput.trim();
-    if (!apiKey || !utr) return;
-    setPaySubmitting(true);
-    try {
-      await mktSubmitPlatformPayment(apiKey, gameId, utr);
-      setGames(p => p.map(g => g.id === gameId ? { ...g, platformPaymentStatus: 'pending' } : g));
-      setPaySuccess(true);
-    } catch (e) {
-      alert(String(e));
-    } finally {
-      setPaySubmitting(false);
-    }
-  }
-
-  function openPaymentModal(game: MktGame) {
-    setPaymentModal(game);
-    setUtrInput('');
-    setPaySuccess(false);
-  }
-
-  function closePaymentModal() {
-    setPaymentModal(null);
-    setUtrInput('');
-    setPaySuccess(false);
   }
 
   async function deleteGame(gameId: string) {
@@ -144,11 +100,6 @@ export function GamesHome({ apiKey, initialOperator }: Props) {
       </div>
     );
   }
-
-  const payFee    = paymentModal ? (paymentModal.sheetCount * 1.99).toFixed(2) : '0';
-  const payUpiUrl = paymentModal && adminUpiId
-    ? `https://tungbola-market.vercel.app/api/pay-redirect?pa=${encodeURIComponent(adminUpiId)}&pn=TungbolaMarket&am=${payFee}&tn=${encodeURIComponent(`Listing Fee ${paymentModal.name}`)}`
-    : '';
 
   return (
     <div className="w-full h-full flex flex-col gap-3">
@@ -249,22 +200,7 @@ export function GamesHome({ apiKey, initialOperator }: Props) {
                     )}
 
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      {g.status === 'draft' && g.sheetCount > 0 ? (
-                        g.platformPaymentStatus === 'pending' ? (
-                          <button onClick={loadData}
-                            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg font-semibold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors">
-                            <Clock className="w-3 h-3" /> Pending verification · tap to refresh
-                          </button>
-                        ) : (
-                          <button onClick={() => openPaymentModal(g)}
-                            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold text-white bg-emerald-500 hover:bg-emerald-400 transition-colors">
-                            <IndianRupee className="w-3 h-3" />
-                            Publish · ₹{(g.sheetCount * 1.99).toFixed(2)}
-                          </button>
-                        )
-                      ) : (
-                        <StatusBtns status={g.status} sheetCount={g.sheetCount} onSet={s => setStatus(g.id, s)} />
-                      )}
+                      <StatusBtns status={g.status} sheetCount={g.sheetCount} onSet={s => setStatus(g.id, s)} />
                       <button onClick={() => deleteGame(g.id)} className="p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors ml-auto">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -367,89 +303,7 @@ export function GamesHome({ apiKey, initialOperator }: Props) {
         />
       )}
 
-      {paymentModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden">
-            {paySuccess ? (
-              <div className="p-8 text-center space-y-4">
-                <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto">
-                  <Check className="w-8 h-8 text-emerald-500" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-black text-slate-900">Payment Submitted!</h3>
-                  <p className="text-sm text-slate-500 mt-1">Your game will go live once admin verifies your payment. Usually within a few minutes.</p>
-                </div>
-                <button onClick={closePaymentModal}
-                  className="w-full py-3 rounded-2xl font-bold text-white text-sm bg-slate-800 hover:bg-slate-700 transition-colors">
-                  Got it
-                </button>
-              </div>
-            ) : (
-              <div className="p-6 space-y-5">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-black text-slate-900">Publish Game</h3>
-                  <button onClick={closePaymentModal} className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
 
-                <div className="bg-slate-50 rounded-2xl p-4 space-y-1.5">
-                  <p className="text-sm font-semibold text-slate-700 truncate">{paymentModal.name}</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-400">{paymentModal.sheetCount} sheets × ₹1.99</span>
-                    <span className="text-2xl font-black text-emerald-600">₹{(paymentModal.sheetCount * 1.99).toFixed(2)}</span>
-                  </div>
-                </div>
-
-                {payQrDataUrl ? (
-                  <div className="space-y-3">
-                    <div className="flex justify-center">
-                      <img src={payQrDataUrl} alt="Pay QR" className="w-44 h-44 rounded-2xl border-2 border-violet-200" />
-                    </div>
-                    <p className="text-[11px] text-slate-400 text-center">
-                      Scan QR · pay to <span className="font-mono font-semibold text-slate-600">{adminUpiId}</span>
-                    </p>
-                    <a href={payUpiUrl} target="_blank" rel="noreferrer"
-                      className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl font-black text-white text-sm bg-violet-600 hover:bg-violet-500 transition-colors">
-                      <IndianRupee className="w-4 h-4" /> Open UPI App — ₹{payFee}
-                    </a>
-                  </div>
-                ) : adminUpiId ? (
-                  <div className="flex justify-center py-4">
-                    <Loader2 className="w-6 h-6 animate-spin text-violet-400" />
-                  </div>
-                ) : (
-                  <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-center">
-                    <p className="text-sm text-amber-700 font-medium">Contact admin for UPI payment details.</p>
-                  </div>
-                )}
-
-                <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wide block mb-1.5">UTR / Transaction Reference</label>
-                  <input
-                    type="text"
-                    value={utrInput}
-                    onChange={e => setUtrInput(e.target.value)}
-                    placeholder="e.g. 411234567890"
-                    className="w-full border-2 border-slate-200 focus:border-sky-400 rounded-xl px-3 py-2.5 text-sm focus:outline-none transition-colors font-mono"
-                  />
-                  <p className="text-[11px] text-slate-400 mt-1">Find this in your UPI app after payment</p>
-                </div>
-
-                <button
-                  onClick={() => submitPayment(paymentModal.id)}
-                  disabled={paySubmitting || utrInput.trim().length < 6}
-                  className="w-full py-3 rounded-2xl font-black text-white text-sm bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 flex items-center justify-center gap-2 transition-colors">
-                  {paySubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                  Submit UTR
-                </button>
-
-                <p className="text-[11px] text-slate-400 text-center">Your game will go live once admin verifies your payment</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
