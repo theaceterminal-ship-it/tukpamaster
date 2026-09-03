@@ -10,6 +10,7 @@ import {
   type MktOperator,
 } from '@/services/marketplaceApi';
 import { cn } from '@/lib/utils';
+import { patchSessionOperator } from '@/lib/session';
 
 interface Props {
   tambola?: ReturnType<typeof useTambola>;
@@ -42,14 +43,26 @@ export function Settings({ tambola, apiKey, initOperator, onLogout }: Props) {
   const connected = keyStatus === 'ok' && !!mktKey;
   const activeOp  = operator ?? initOperator ?? null;
 
-  // Populate form from operator data (server-side truth, takes priority)
+  // Populate form from operator data (server-side truth, takes priority).
+  // Depends on the object itself (not just .id) so a fresh fetch — e.g. the
+  // mount refresh below — re-populates the form even though the id is unchanged.
   useEffect(() => {
     if (!activeOp) return;
     setPName(activeOp.displayName ?? '');
     setPPhone(activeOp.supportPhone ?? '');
     setPUpiId(activeOp.upiId ?? '');
     setZoomConnected(activeOp.zoomConnected ?? false);
-  }, [activeOp?.id]);
+  }, [activeOp]);
+
+  // Plan A: initOperator is just the snapshot cached at login/signup time and
+  // never otherwise refreshed, so it can show stale (e.g. blank) profile fields
+  // after a reload even when the real data is saved server-side. Refresh once
+  // on mount so this page always reflects server truth, same as GamesHome does.
+  useEffect(() => {
+    if (!isPlanA || !mktKey) return;
+    mktGetInfo(mktKey).then(info => setOperator(info.operator)).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Handle ?zoom=connected redirect back from Zoom OAuth
   useEffect(() => {
@@ -101,11 +114,16 @@ export function Settings({ tambola, apiKey, initOperator, onLogout }: Props) {
     setPSaving(true); setPErr(''); setPSaved(false);
     try {
       if (canApi) {
-        await mktUpdateProfile(mktKey, {
+        const profile = {
           displayName:  pName.trim()  || null,
           supportPhone: pPhone.trim() || null,
           upiId:        pUpiId.trim() || null,
-        });
+        };
+        await mktUpdateProfile(mktKey, profile);
+        // The top-level session cached in localStorage (from login/signup) doesn't
+        // otherwise get refreshed, so a reload would show blank/stale fields even
+        // though the save succeeded server-side. Keep it in sync for Plan A.
+        if (isPlanA) patchSessionOperator(profile);
       }
       if (canLocal) {
         await tambola!.setUpiSettings({

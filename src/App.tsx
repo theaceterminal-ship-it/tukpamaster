@@ -5,7 +5,7 @@ import {
   Menu, X, UserCircle2, LayoutDashboard, Users, Ticket,
   ClipboardList, History, UserCircle, ShoppingBag, ListOrdered,
 } from 'lucide-react';
-import { mktGetInfo, mktSignup, type MktOperator } from '@/services/marketplaceApi';
+import { mktGetInfo, mktSignup } from '@/services/marketplaceApi';
 import { useTambola } from '@/hooks/useTambola';
 import { Header } from '@/components/layout/Header';
 import { Splash } from '@/components/layout/Splash';
@@ -28,16 +28,10 @@ import { PlanAOrders } from '@/components/plan-a/PlanAOrders';
 import { Toaster } from '@/components/ui/sonner';
 import { cn } from '@/lib/utils';
 import type { AppPage } from '@/types';
+import { SESSION_KEY, type OpSession, getSession } from '@/lib/session';
 import './App.css';
 
-const SESSION_KEY = 'tukpa-op-v2';
-type OpSession = { apiKey: string; operator: MktOperator };
 type PlanAPage = 'games' | 'orders' | 'live-game' | 'sheets' | 'profile';
-
-function getSession(): OpSession | null {
-  try { return JSON.parse(localStorage.getItem(SESSION_KEY) ?? 'null'); }
-  catch { return null; }
-}
 
 // ── Shared nav config ─────────────────────────────────────────────────────────
 
