@@ -29,9 +29,12 @@ export interface MktGame {
   name: string;
   gameDate: string | null;
   status: 'draft' | 'listed' | 'ended';
+  sheetFrom: number;
+  sheetTo: number;
   sheetCount: number;
   soldCount: number;
   pricePerSheet: number;
+  prizes?: { name: string; kind: string; amount: number }[];
   createdAt: number;
   platformPaymentStatus: 'pending' | 'verified' | 'rejected' | null;
 }
@@ -155,6 +158,34 @@ export async function mktCallNumber(
 
 export async function mktResetLive(apiKey: string, gameId: string): Promise<void> {
   return post(apiKey, { action: 'reset-live', gameId });
+}
+
+export interface MktClaimedPrize { name: string; amount: number; winner: string | null; claimedAt: number }
+
+// Public read — no apiKey required, used to restore live state on load/reconnect.
+export async function mktGetLiveGame(gameId: string): Promise<{
+  calledNumbers: number[]; lastNumber: number | null; claimedPrizes: MktClaimedPrize[];
+}> {
+  const r = await fetch('https://tungbola-market.vercel.app/api/marketplace', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'get-live-game', gameId }),
+  });
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+  return data;
+}
+
+export async function mktClaimPrize(
+  apiKey: string, gameId: string, prizeName: string, winnerName?: string
+): Promise<{ claimedPrizes: MktClaimedPrize[]; remainingPrizes: { name: string; amount: number }[] }> {
+  return post(apiKey, { action: 'claim-prize', gameId, prizeName, winnerName });
+}
+
+export async function mktUnclaimPrize(
+  apiKey: string, gameId: string, prizeName: string
+): Promise<{ claimedPrizes: MktClaimedPrize[] }> {
+  return post(apiKey, { action: 'unclaim-prize', gameId, prizeName });
 }
 
 export async function mktUploadSheet(

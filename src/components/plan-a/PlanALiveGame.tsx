@@ -1,8 +1,8 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Radio, Play, RotateCcw, Volume2, VolumeX, Trophy,
   ShieldCheck, CheckCircle, ChevronDown, ChevronUp,
-  Loader2, ExternalLink, X,
+  Loader2, ExternalLink, X, Rss,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,10 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { mktGetSheet } from '@/services/marketplaceApi';
+import {
+  mktGetSheet, mktGetInfo, mktGetLiveGame, mktCallNumber, mktResetLive,
+  mktClaimPrize, mktUnclaimPrize, type MktGame,
+} from '@/services/marketplaceApi';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 
 const NUMBER_LINGO: Record<number, string> = {
@@ -42,7 +45,6 @@ const NUMBER_LINGO: Record<number, string> = {
 };
 
 type PlanAPrize = {
-  id: string;
   name: string;
   amount: number;
   claimed: boolean;
@@ -50,8 +52,10 @@ type PlanAPrize = {
 };
 
 type PlanAGameState = {
-  id: string;
+  gameId: string;       // real games.id — required so calls/claims sync to the backend
   name: string;
+  sheetFrom: number;
+  sheetTo: number;
   status: 'active' | 'ended';
   calledNumbers: number[];
   prizes: PlanAPrize[];
@@ -60,23 +64,13 @@ type PlanAGameState = {
 
 const GAME_KEY = 'tukpa-planA-game';
 
-const PRIZE_DEFAULTS = [
-  { name: 'Full House',        amount: 5000 },
-  { name: 'Second Full House', amount: 3000 },
-  { name: 'Upper Line',        amount: 1000 },
-  { name: 'Middle Line',       amount: 1000 },
-  { name: 'Bottom Line',       amount: 1000 },
-  { name: 'Ticket Corners',    amount: 500  },
-  { name: 'Early 5',           amount: 500  },
-];
-
 interface Props { apiKey: string; }
 
 export function PlanALiveGame({ apiKey }: Props) {
   const [game, setGame] = useLocalStorage<PlanAGameState | null>(GAME_KEY, null);
 
   if (!game || game.status === 'ended') {
-    return <SetupScreen onStart={setGame} prevGame={game} />;
+    return <SetupScreen apiKey={apiKey} onStart={setGame} prevGame={game} />;
   }
   return <ActiveGame game={game} setGame={setGame} apiKey={apiKey} />;
 }
@@ -84,26 +78,41 @@ export function PlanALiveGame({ apiKey }: Props) {
 // ── Setup Screen ──────────────────────────────────────────────────────────────
 
 function SetupScreen({
-  onStart, prevGame,
+  apiKey, onStart, prevGame,
 }: {
+  apiKey: string;
   onStart: (g: PlanAGameState) => void;
   prevGame?: PlanAGameState | null;
 }) {
-  const [name, setName] = useState('');
-  const [prizes, setPrizes] = useState(
-    PRIZE_DEFAULTS.map((p, i) => ({ id: `p${i}`, ...p, checked: true }))
-  );
+  const [games, setGames]     = useState<MktGame[] | null>(null);
+  const [loadErr, setLoadErr] = useState('');
+  const [pickedId, setPickedId] = useState('');
+  const [prizes, setPrizes]   = useState<{ name: string; amount: number; checked: boolean }[]>([]);
+
+  useEffect(() => {
+    mktGetInfo(apiKey)
+      .then(info => setGames(info.games.slice().sort((a, b) => b.createdAt - a.createdAt)))
+      .catch(e => setLoadErr(e instanceof Error ? e.message : 'Failed to load your games'));
+  }, [apiKey]);
+
+  const picked = games?.find(g => g.id === pickedId) ?? null;
+
+  function pickGame(id: string) {
+    setPickedId(id);
+    const g = games?.find(x => x.id === id) ?? null;
+    setPrizes((g?.prizes ?? []).map(p => ({ name: p.name, amount: p.amount, checked: true })));
+  }
 
   const handleStart = () => {
-    if (!name.trim()) return;
+    if (!picked) return;
     const game: PlanAGameState = {
-      id: Date.now().toString(36),
-      name: name.trim(),
+      gameId: picked.id,
+      name: picked.name,
+      sheetFrom: picked.sheetFrom,
+      sheetTo: picked.sheetTo,
       status: 'active',
       calledNumbers: [],
-      prizes: prizes
-        .filter(p => p.checked)
-        .map(p => ({ id: p.id, name: p.name, amount: p.amount, claimed: false })),
+      prizes: prizes.filter(p => p.checked).map(p => ({ name: p.name, amount: p.amount, claimed: false })),
       startedAt: Date.now(),
     };
     onStart(game);
@@ -115,7 +124,9 @@ function SetupScreen({
         <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
           <Radio className="w-6 h-6 text-red-500" /> Live Game
         </h2>
-        <p className="text-slate-500 mt-1 text-sm">Start a standalone tambola session.</p>
+        <p className="text-slate-500 mt-1 text-sm">
+          Pick one of your games — name, sheet range and prizes are preset from it.
+        </p>
       </div>
 
       {prevGame && prevGame.status === 'ended' && (
@@ -126,59 +137,70 @@ function SetupScreen({
 
       <Card>
         <CardContent className="p-5 space-y-4">
-          <div>
-            <Label className="text-xs font-semibold text-slate-600 mb-1 block">Game Name *</Label>
-            <Input
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="e.g. Sunday Tambola"
-              onKeyDown={e => e.key === 'Enter' && handleStart()}
-              autoFocus
-            />
-          </div>
-
-          <div>
-            <Label className="text-xs font-semibold text-slate-600 mb-2 block">Prizes</Label>
-            <div className="space-y-2">
-              {prizes.map((p, i) => (
-                <div key={p.id} className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setPrizes(prev =>
-                      prev.map((px, j) => j === i ? { ...px, checked: !px.checked } : px)
-                    )}
-                    className={cn(
-                      'w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors',
-                      p.checked ? 'bg-sky-500 border-sky-500' : 'border-slate-300',
-                    )}
-                  >
-                    {p.checked && <CheckCircle className="w-3 h-3 text-white" />}
-                  </button>
-                  <span className={cn('text-sm w-36 shrink-0', p.checked ? 'text-slate-800 font-medium' : 'text-slate-400')}>
-                    {p.name}
-                  </span>
-                  {p.checked && (
-                    <div className="flex items-center gap-1">
-                      <span className="text-slate-400 text-sm">₹</span>
-                      <input
-                        type="number"
-                        value={p.amount}
-                        onChange={e => setPrizes(prev =>
-                          prev.map((px, j) => j === i ? { ...px, amount: Number(e.target.value) } : px)
-                        )}
-                        min={0}
-                        className="w-24 border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
-                      />
-                    </div>
-                  )}
-                </div>
-              ))}
+          {loadErr ? (
+            <p className="text-sm text-red-500">{loadErr}</p>
+          ) : games === null ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="w-5 h-5 animate-spin text-slate-300" />
             </div>
-          </div>
+          ) : games.length === 0 ? (
+            <p className="text-sm text-slate-400">No games yet — create one under My Games first.</p>
+          ) : (
+            <div>
+              <Label className="text-xs font-semibold text-slate-600 mb-1 block">Game *</Label>
+              <select
+                value={pickedId}
+                onChange={e => pickGame(e.target.value)}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+              >
+                <option value="">Select a game…</option>
+                {games.map(g => (
+                  <option key={g.id} value={g.id}>
+                    {g.name} — {g.status}{g.sheetCount ? ` · sheets #${g.sheetFrom}–#${g.sheetTo}` : ' · no sheets assigned'}
+                  </option>
+                ))}
+              </select>
+              {picked && !picked.sheetCount && (
+                <p className="text-xs text-amber-600 mt-1.5">
+                  This game has no sheets assigned yet — sheet lookup during claims won&apos;t find anything until you assign a range.
+                </p>
+              )}
+            </div>
+          )}
+
+          {picked && (
+            <div>
+              <Label className="text-xs font-semibold text-slate-600 mb-2 block">Prizes (from this game)</Label>
+              {prizes.length === 0 ? (
+                <p className="text-xs text-slate-400">This game has no prizes configured.</p>
+              ) : (
+                <div className="space-y-2">
+                  {prizes.map((p, i) => (
+                    <div key={p.name} className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setPrizes(prev => prev.map((px, j) => j === i ? { ...px, checked: !px.checked } : px))}
+                        className={cn(
+                          'w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors',
+                          p.checked ? 'bg-sky-500 border-sky-500' : 'border-slate-300',
+                        )}
+                      >
+                        {p.checked && <CheckCircle className="w-3 h-3 text-white" />}
+                      </button>
+                      <span className={cn('text-sm flex-1', p.checked ? 'text-slate-800 font-medium' : 'text-slate-400')}>
+                        {p.name}
+                      </span>
+                      <span className="text-slate-500 text-sm">₹{p.amount.toLocaleString('en-IN')}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <Button
             onClick={handleStart}
-            disabled={!name.trim() || !prizes.some(p => p.checked)}
+            disabled={!picked}
             className="w-full bg-red-500 hover:bg-red-600 text-white font-bold gap-2"
           >
             <Play className="w-4 h-4" /> Start Game
@@ -204,9 +226,31 @@ function ActiveGame({
   const [lastCalled, setLastCalled] = useState<number | null>(
     game.calledNumbers[game.calledNumbers.length - 1] ?? null
   );
+  const [syncErr, setSyncErr] = useState('');
   const numInputRef = useRef<HTMLInputElement>(null);
 
   const calledSet = new Set(game.calledNumbers);
+
+  // Restore already-called numbers / claimed prizes from the server on load —
+  // covers resuming after a reload, or picking up where the game left off if
+  // it was also being called from elsewhere (e.g. the bot / another device).
+  useEffect(() => {
+    mktGetLiveGame(game.gameId).then(live => {
+      const merged = Array.from(new Set([...game.calledNumbers, ...live.calledNumbers])).sort((a, b) => a - b);
+      const claimedNames = new Set(live.claimedPrizes.map(p => p.name));
+      setGame({
+        ...game,
+        calledNumbers: merged,
+        prizes: game.prizes.map(p => claimedNames.has(p.name)
+          ? { ...p, claimed: true, winner: live.claimedPrizes.find(c => c.name === p.name)?.winner ?? p.winner }
+          : p),
+      });
+      if (live.lastNumber) setLastCalled(live.lastNumber);
+    }).catch(() => {});
+    // Runs once per game (on entering the live screen) to reconcile with the
+    // server — intentionally not re-run on every local `game` change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game.gameId]);
 
   const handleCallNumber = () => {
     const n = parseInt(manualNum, 10);
@@ -218,7 +262,7 @@ function ActiveGame({
       setCallError(`${n} was already called.`);
       return;
     }
-    setCallError('');
+    setCallError(''); setSyncErr('');
     setManualNum('');
     setLastCalled(n);
     setGame({ ...game, calledNumbers: [...game.calledNumbers, n] });
@@ -228,6 +272,12 @@ function ActiveGame({
       window.speechSynthesis.speak(utt);
     }
     setTimeout(() => numInputRef.current?.focus(), 50);
+
+    // Sync live — pushes to your Telegram channel too, if one's connected in
+    // Settings. Fire-and-forget: you already called it out, don't block on the network.
+    mktCallNumber(apiKey, game.gameId, n).catch(e => {
+      setSyncErr(e instanceof Error ? e.message : 'Live sync failed — number is still called locally.');
+    });
   };
 
   const handleEndGame = () => {
@@ -236,25 +286,29 @@ function ActiveGame({
   };
 
   const handleReset = () => {
-    if (!confirm('Reset all numbers and claims?')) return;
+    if (!confirm('Reset all numbers and claims? This also clears the synced Telegram board.')) return;
     setGame({
       ...game,
       calledNumbers: [],
       prizes: game.prizes.map(p => ({ ...p, claimed: false, winner: undefined })),
     });
     setLastCalled(null);
+    mktResetLive(apiKey, game.gameId).catch(() => {});
   };
 
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-4">
           <h2 className="text-xl font-bold text-slate-800">{game.name}</h2>
           <Badge variant="destructive" className="gap-1">
             <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
             LIVE
           </Badge>
+          <span className="text-xs text-slate-400 flex items-center gap-1">
+            <Rss className="w-3 h-3" /> synced
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setSoundEnabled(v => !v)}>
@@ -268,10 +322,11 @@ function ActiveGame({
           </Button>
         </div>
       </div>
+      {syncErr && <p className="text-xs text-amber-600">{syncErr}</p>}
 
       {/* Main grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Number board */}
+        {/* Number board — compact */}
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center justify-between text-sm">
@@ -280,7 +335,7 @@ function ActiveGame({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-10 gap-1.5">
+            <div className="grid grid-cols-10 gap-1 max-w-md mx-auto lg:mx-0">
               {Array.from({ length: 90 }, (_, i) => i + 1).map(num => {
                 const isCalled = calledSet.has(num);
                 const isLast = lastCalled === num;
@@ -290,7 +345,7 @@ function ActiveGame({
                     initial={isLast ? { scale: 0.5 } : false}
                     animate={{ scale: 1 }}
                     className={cn(
-                      'aspect-square flex items-center justify-center text-xs font-bold rounded-lg transition-all duration-300',
+                      'aspect-square flex items-center justify-center text-[10px] font-bold rounded-md transition-all duration-300',
                       isLast
                         ? 'bg-red-500 text-white shadow-lg ring-2 ring-red-300'
                         : isCalled
@@ -393,7 +448,7 @@ function ActiveGame({
               <div className="space-y-2">
                 {game.prizes.map(prize => (
                   <div
-                    key={prize.id}
+                    key={prize.name}
                     className={cn(
                       'flex items-center justify-between py-1.5 px-2 rounded text-sm',
                       prize.claimed ? 'bg-emerald-50' : 'bg-slate-50',
@@ -419,7 +474,7 @@ function ActiveGame({
       </div>
 
       {/* Claim Recorder */}
-      <ClaimRecorder game={game} setGame={setGame} apiKey={apiKey} />
+      <ClaimRecorder game={game} setGame={setGame} apiKey={apiKey} calledSet={calledSet} />
     </div>
   );
 }
@@ -427,11 +482,12 @@ function ActiveGame({
 // ── Claim Recorder ────────────────────────────────────────────────────────────
 
 function ClaimRecorder({
-  game, setGame, apiKey,
+  game, setGame, apiKey, calledSet,
 }: {
   game: PlanAGameState;
   setGame: (g: PlanAGameState) => void;
   apiKey: string;
+  calledSet: Set<number>;
 }) {
   const [open, setOpen] = useState(false);
   const [sheetNum, setSheetNum] = useState('');
@@ -440,15 +496,22 @@ function ClaimRecorder({
   const [lookupError, setLookupError] = useState('');
   const [selectedPrize, setSelectedPrize] = useState('');
   const [winnerName, setWinnerName] = useState('');
+  const [recording, setRecording] = useState(false);
+  const [recordErr, setRecordErr] = useState('');
   const [recorded, setRecorded] = useState(false);
 
   const unclaimed = game.prizes.filter(p => !p.claimed);
 
   const handleLookup = async () => {
     if (!sheetNum) return;
+    const n = Number(sheetNum);
+    if (n < game.sheetFrom || n > game.sheetTo) {
+      setLookupError(`This game's sheets run #${game.sheetFrom}–#${game.sheetTo}.`);
+      return;
+    }
     setLookupLoading(true); setLookupError(''); setSheetUrl('');
     try {
-      const { sheet } = await mktGetSheet(apiKey, Number(sheetNum));
+      const { sheet } = await mktGetSheet(apiKey, n);
       setSheetUrl(sheet.u);
     } catch (e) {
       setLookupError(e instanceof Error ? e.message : 'Sheet not found in library');
@@ -457,21 +520,49 @@ function ClaimRecorder({
     }
   };
 
-  const handleRecord = () => {
+  const handleRecord = async () => {
     if (!selectedPrize || !winnerName.trim()) return;
-    setGame({
-      ...game,
-      prizes: game.prizes.map(p =>
-        p.id === selectedPrize ? { ...p, claimed: true, winner: winnerName.trim() } : p
-      ),
-    });
-    setRecorded(true);
-    setTimeout(() => {
-      setRecorded(false);
-      setSheetNum(''); setSheetUrl(''); setSelectedPrize(''); setWinnerName('');
-      setLookupError('');
-    }, 2000);
+    setRecording(true); setRecordErr('');
+    try {
+      await mktClaimPrize(apiKey, game.gameId, selectedPrize, winnerName.trim());
+      setGame({
+        ...game,
+        prizes: game.prizes.map(p =>
+          p.name === selectedPrize ? { ...p, claimed: true, winner: winnerName.trim() } : p
+        ),
+      });
+      setRecorded(true);
+      setTimeout(() => {
+        setRecorded(false);
+        setSheetNum(''); setSheetUrl(''); setSelectedPrize(''); setWinnerName('');
+        setLookupError('');
+      }, 2000);
+    } catch (e) {
+      setRecordErr(e instanceof Error ? e.message : 'Failed to record claim');
+    } finally {
+      setRecording(false);
+    }
   };
+
+  const handleUnclaim = async (prizeName: string) => {
+    if (!confirm(`Undo the claim on "${prizeName}"?`)) return;
+    try {
+      await mktUnclaimPrize(apiKey, game.gameId, prizeName);
+      setGame({
+        ...game,
+        prizes: game.prizes.map(p => p.name === prizeName ? { ...p, claimed: false, winner: undefined } : p),
+      });
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to undo claim');
+    }
+  };
+
+  // Manual-check aid only: this pulls up the actual ticket PDF next to the
+  // called-numbers list so you can eyeball it fast. It does NOT automatically
+  // verify the claim — for uploaded PDF sheets there's no structured data on
+  // which numbers are actually printed on the ticket, so a real pass/fail
+  // check isn't possible without that data.
+  const calledPreview = Array.from(calledSet).sort((a, b) => a - b);
 
   return (
     <Card className="border-amber-200">
@@ -496,7 +587,7 @@ function ClaimRecorder({
           <div className="grid grid-cols-2 gap-1.5">
             {game.prizes.map(p => (
               <div
-                key={p.id}
+                key={p.name}
                 className={cn(
                   'flex items-center justify-between text-xs px-2.5 py-1.5 rounded-lg',
                   p.claimed ? 'bg-emerald-50 border border-emerald-200' : 'bg-slate-50 border border-slate-200',
@@ -504,7 +595,19 @@ function ClaimRecorder({
               >
                 <span className={p.claimed ? 'text-emerald-700 line-through' : 'text-slate-600'}>{p.name}</span>
                 {p.claimed
-                  ? <span className="text-emerald-600 font-medium truncate max-w-[80px]" title={p.winner}>{p.winner}</span>
+                  ? (
+                    <div className="flex items-center gap-1">
+                      <span className="text-emerald-600 font-medium truncate max-w-[64px]" title={p.winner}>{p.winner}</span>
+                      <button
+                        type="button"
+                        title="Undo claim (mis-click / dispute)"
+                        onClick={() => handleUnclaim(p.name)}
+                        className="text-emerald-400 hover:text-red-500 transition-colors shrink-0"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )
                   : <span className="text-slate-400">₹{p.amount}</span>
                 }
               </div>
@@ -514,23 +617,27 @@ function ClaimRecorder({
           {recorded ? (
             <div className="bg-emerald-50 border border-emerald-300 rounded-lg p-3 text-center">
               <CheckCircle className="w-5 h-5 text-emerald-600 mx-auto mb-1" />
-              <p className="text-sm font-bold text-emerald-800">Claim recorded!</p>
+              <p className="text-sm font-bold text-emerald-800">Claim recorded! Remaining prizes sent to your Telegram channel.</p>
             </div>
           ) : (
             <div className="border-t border-slate-100 pt-3 space-y-3">
               {/* Sheet lookup */}
               <div>
                 <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  Sheet Lookup (optional)
+                  Sheet Lookup — manual check
                 </Label>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Opens the ticket PDF so you can check it by eye against the called numbers below. It doesn&apos;t auto-verify.
+                </p>
                 <div className="flex gap-2 mt-1.5">
                   <Input
                     type="number"
                     value={sheetNum}
                     onChange={e => { setSheetNum(e.target.value); setSheetUrl(''); setLookupError(''); }}
-                    placeholder="Sheet #"
+                    placeholder={`#${game.sheetFrom}–#${game.sheetTo}`}
                     className="text-sm h-8"
-                    min={1}
+                    min={game.sheetFrom || 1}
+                    max={game.sheetTo || undefined}
                     onKeyDown={e => e.key === 'Enter' && handleLookup()}
                   />
                   <Button
@@ -555,14 +662,24 @@ function ClaimRecorder({
                 </div>
                 {lookupError && <p className="text-xs text-red-500 mt-1">{lookupError}</p>}
                 {sheetUrl && (
-                  <a
-                    href={sheetUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 mt-2 text-xs text-sky-600 hover:text-sky-800 font-medium"
-                  >
-                    <ExternalLink className="w-3 h-3" /> Open Sheet PDF
-                  </a>
+                  <div className="mt-2 space-y-1.5">
+                    <a
+                      href={sheetUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs text-sky-600 hover:text-sky-800 font-medium"
+                    >
+                      <ExternalLink className="w-3 h-3" /> Open Sheet PDF
+                    </a>
+                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-2">
+                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">
+                        {calledPreview.length} numbers called so far
+                      </p>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        {calledPreview.length ? calledPreview.join(', ') : '—'}
+                      </p>
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -577,7 +694,7 @@ function ClaimRecorder({
                   >
                     <option value="">Select prize…</option>
                     {unclaimed.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
+                      <option key={p.name} value={p.name}>{p.name}</option>
                     ))}
                   </select>
                 </div>
@@ -592,13 +709,15 @@ function ClaimRecorder({
                   />
                 </div>
               </div>
+              {recordErr && <p className="text-xs text-red-500">{recordErr}</p>}
               <Button
                 onClick={handleRecord}
-                disabled={!selectedPrize || !winnerName.trim()}
+                disabled={!selectedPrize || !winnerName.trim() || recording}
                 size="sm"
                 className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 gap-2"
               >
-                <ShieldCheck className="w-3.5 h-3.5" /> Record Claim
+                {recording ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                Record Claim
               </Button>
             </div>
           )}
