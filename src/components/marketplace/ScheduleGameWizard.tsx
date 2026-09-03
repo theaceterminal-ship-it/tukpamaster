@@ -27,7 +27,12 @@ const PRIZE_PRESETS = [
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface PricingTier { qty: number; price: number }
+// Fields are kept as strings while editing (not numbers) to avoid a well-known
+// React controlled-<input type="number"> quirk: with a numeric value, clearing
+// the field and typing a new digit can leave a stuck leading zero ("05") because
+// React's DOM value-tracker and the actual input string briefly disagree. Parsed
+// to numbers only at submission (see handleCreate).
+interface PricingTier { qty: string; price: string }
 
 interface Props {
   apiKey: string;
@@ -97,16 +102,16 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
   const [joinDetails, setJoinDetails] = useState('');
 
   // Step 2
-  const [price, setPrice]               = useState(100);
+  const [price, setPrice]               = useState('100');
   const [variablePricing, setVariable]  = useState(false);
-  const [tiers, setTiers]               = useState<PricingTier[]>([{ qty: 5, price: 450 }]);
+  const [tiers, setTiers]               = useState<PricingTier[]>([{ qty: '5', price: '450' }]);
   const [thumbFile, setThumbFile]       = useState<File | null>(null);
   const [thumbPreview, setThumbPreview] = useState<string | null>(null);
   const [description, setDescription]  = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Step 3
-  const [prizes, setPrizes] = useState<Record<string, number>>({ 'full-house': 5000 });
+  const [prizes, setPrizes] = useState<Record<string, string>>({ 'full-house': '5000' });
 
   // Step 4
   const [sheetFrom, setSheetFrom]     = useState('');
@@ -121,7 +126,7 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
 
   const canNext = [
     name.trim().length > 0,
-    price >= 1,
+    Number(price) >= 1,
     Object.keys(prizes).length > 0,
     true, // step 4 — always can try
   ][step] ?? true;
@@ -136,14 +141,14 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
   }
 
   function addTier() {
-    setTiers(t => [...t, { qty: 10, price: 900 }]);
+    setTiers(t => [...t, { qty: '10', price: '900' }]);
   }
 
   function removeTier(i: number) {
     setTiers(t => t.filter((_, idx) => idx !== i));
   }
 
-  function updateTier(i: number, field: keyof PricingTier, val: number) {
+  function updateTier(i: number, field: keyof PricingTier, val: string) {
     setTiers(t => t.map((tier, idx) => idx === i ? { ...tier, [field]: val } : tier));
   }
 
@@ -151,7 +156,7 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
     setPrizes(prev => {
       const n = { ...prev };
       if (type in n) delete n[type];
-      else n[type] = def;
+      else n[type] = String(def);
       return n;
     });
   }
@@ -199,11 +204,11 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
       }
 
       const prizesArr = Object.entries(prizes)
-        .filter(([, v]) => v > 0)
+        .filter(([, v]) => Number(v) > 0)
         .map(([type, amount]) => ({
           name: PRIZE_PRESETS.find(p => p.type === type)?.label ?? type,
           kind: 'cash' as const,
-          amount,
+          amount: Number(amount),
         }));
 
       const gameDate = datetime
@@ -220,8 +225,10 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
         joinTime: joinTime || null,
         joinLink: joinLink.trim() || null,
         joinDetails: joinDetails.trim() || null,
-        pricePerSheet: price,
-        pricingTiers: variablePricing && tiers.length > 0 ? tiers : undefined,
+        pricePerSheet: Number(price) || 0,
+        pricingTiers: variablePricing && tiers.length > 0
+          ? tiers.map(t => ({ qty: Number(t.qty) || 1, price: Number(t.price) || 1 }))
+          : undefined,
         description: description.trim() || undefined,
         prizes: prizesArr,
         thumbnail: thumbnailUrl,
@@ -350,7 +357,7 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
               <input
                 type="number"
                 value={price}
-                onChange={e => setPrice(Number(e.target.value))}
+                onChange={e => setPrice(e.target.value)}
                 min={1}
                 className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white text-2xl font-bold focus:outline-none focus:ring-2 focus:ring-violet-400 [color-scheme:dark]"
               />
@@ -386,7 +393,7 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
                       <input
                         type="number"
                         value={tier.qty}
-                        onChange={e => updateTier(i, 'qty', Number(e.target.value))}
+                        onChange={e => updateTier(i, 'qty', e.target.value)}
                         min={1}
                         className="w-12 bg-transparent text-white text-sm font-bold focus:outline-none"
                       />
@@ -394,7 +401,7 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
                       <input
                         type="number"
                         value={tier.price}
-                        onChange={e => updateTier(i, 'price', Number(e.target.value))}
+                        onChange={e => updateTier(i, 'price', e.target.value)}
                         min={1}
                         className="w-20 bg-transparent text-white text-sm font-bold focus:outline-none"
                       />
@@ -493,7 +500,7 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
                         <input
                           type="number"
                           value={prizes[pt.type]}
-                          onChange={e => setPrizes(p => ({ ...p, [pt.type]: Number(e.target.value) }))}
+                          onChange={e => setPrizes(p => ({ ...p, [pt.type]: e.target.value }))}
                           min={0}
                           className="w-full bg-white/10 border border-violet-400/40 rounded-lg px-2 py-1 text-white text-sm font-bold focus:outline-none focus:ring-1 focus:ring-violet-400 [color-scheme:dark]"
                         />
