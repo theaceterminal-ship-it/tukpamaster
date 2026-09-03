@@ -249,7 +249,11 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
   // ── render ──
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#0c1a2e] flex flex-col">
+    // On mobile this stays a full-screen sheet (unchanged). From sm: up it becomes
+    // a centered popup card over a dimmed backdrop, capped in width/height, instead
+    // of stretching the form edge-to-edge across a desktop-width viewport.
+    <div className="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center sm:bg-black/60 sm:backdrop-blur-sm sm:p-4">
+    <div className="w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-lg bg-[#0c1a2e] sm:rounded-3xl sm:shadow-2xl flex flex-col overflow-hidden">
 
       {/* Header */}
       <div className="flex items-center gap-3 px-4 pt-safe-top pt-4 pb-3 border-b border-white/10">
@@ -601,6 +605,7 @@ export function ScheduleGameWizard({ apiKey, onCreated, onClose }: Props) {
           </button>
         )}
       </div>
+    </div>
     </div>
   );
 }
