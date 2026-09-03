@@ -150,14 +150,17 @@ export async function mktZoomDisconnect(apiKey: string): Promise<void> {
   return post(apiKey, { action: 'zoom-disconnect' });
 }
 
+// gameName is only required when gameId isn't a real marketplace game (e.g. a
+// Plan B locally-generated session) — the backend uses it to resolve an
+// operator-namespaced "ad-hoc" live session instead of looking up a games row.
 export async function mktCallNumber(
-  apiKey: string, gameId: string, number: number
+  apiKey: string, gameId: string, number: number, gameName?: string
 ): Promise<void> {
-  return post(apiKey, { action: 'call-number', gameId, number });
+  return post(apiKey, { action: 'call-number', gameId, number, gameName });
 }
 
-export async function mktResetLive(apiKey: string, gameId: string): Promise<void> {
-  return post(apiKey, { action: 'reset-live', gameId });
+export async function mktResetLive(apiKey: string, gameId: string, gameName?: string): Promise<void> {
+  return post(apiKey, { action: 'reset-live', gameId, gameName });
 }
 
 export interface MktClaimedPrize { name: string; amount: number; winner: string | null; claimedAt: number }
@@ -176,16 +179,20 @@ export async function mktGetLiveGame(gameId: string): Promise<{
   return data;
 }
 
+// opts.gameName/amount/allPrizes are only needed for an ad-hoc (Plan B) game —
+// there's no marketplace games row there for the backend to read the prize
+// definition or full prize list from, so the caller supplies them directly.
 export async function mktClaimPrize(
-  apiKey: string, gameId: string, prizeName: string, winnerName?: string
+  apiKey: string, gameId: string, prizeName: string, winnerName?: string,
+  opts?: { gameName?: string; amount?: number; allPrizes?: { name: string; amount: number }[] }
 ): Promise<{ claimedPrizes: MktClaimedPrize[]; remainingPrizes: { name: string; amount: number }[] }> {
-  return post(apiKey, { action: 'claim-prize', gameId, prizeName, winnerName });
+  return post(apiKey, { action: 'claim-prize', gameId, prizeName, winnerName, ...opts });
 }
 
 export async function mktUnclaimPrize(
-  apiKey: string, gameId: string, prizeName: string
+  apiKey: string, gameId: string, prizeName: string, gameName?: string
 ): Promise<{ claimedPrizes: MktClaimedPrize[] }> {
-  return post(apiKey, { action: 'unclaim-prize', gameId, prizeName });
+  return post(apiKey, { action: 'unclaim-prize', gameId, prizeName, gameName });
 }
 
 export async function mktUploadSheet(

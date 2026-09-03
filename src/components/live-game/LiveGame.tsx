@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { verifyDividend } from '@/lib/tambola';
+import { mktCallNumber, mktClaimPrize, mktResetLive } from '@/services/marketplaceApi';
 
 interface LiveGameProps {
   tambola: ReturnType<typeof useTambola>;
@@ -69,7 +70,7 @@ const DIVIDEND_OPTIONS = [
 // ─── Inline Verifier ──────────────────────────────────────────────────────────
 
 function InlineVerifier({ tambola }: { tambola: ReturnType<typeof useTambola> }) {
-  const { sheets, currentGame, claimDividend } = tambola;
+  const { sheets, currentGame, claimDividend, mktApiKey } = tambola;
   const [open,       setOpen]       = useState(false);
   const [ticketId,   setTicketId]   = useState('');
   const [claimType,  setClaimType]  = useState('');
@@ -131,8 +132,17 @@ function InlineVerifier({ tambola }: { tambola: ReturnType<typeof useTambola> })
     if (!claimName.trim() || !currentGame) return;
     const div = currentGame.dividends.find(d => d.type === claimType);
     if (!div) return;
-    await claimDividend(div.id, `${claimName.trim()}${claimPhone.trim() ? ` (${claimPhone.trim()})` : ''}`);
+    const winnerLabel = `${claimName.trim()}${claimPhone.trim() ? ` (${claimPhone.trim()})` : ''}`;
+    await claimDividend(div.id, winnerLabel);
     setClaimed(true);
+    // Optional Telegram sync — see handleCallNumber for why gameName/amount/
+    // allPrizes are needed (this is an ad-hoc, not marketplace, game).
+    if (mktApiKey) {
+      mktClaimPrize(mktApiKey, currentGame.id, div.name, winnerLabel, {
+        gameName: currentGame.name, amount: div.prize,
+        allPrizes: currentGame.dividends.map(d => ({ name: d.name, amount: d.prize })),
+      }).catch(() => {});
+    }
   };
 
   const reset = () => {
@@ -357,6 +367,7 @@ export function LiveGame({ tambola }: LiveGameProps) {
   const {
     currentGame, createGame, startGame, callNumber, endGame, resetGame,
     scheduleGame, scheduledGames, removeScheduledGame, rescheduleGame, linkScheduledGame,
+    mktApiKey,
   } = tambola;
 
   const [schedDialogOpen, setSchedDialogOpen] = useState(false);
@@ -410,6 +421,14 @@ export function LiveGame({ tambola }: LiveGameProps) {
       const utt = new SpeechSynthesisUtterance(String(n));
       utt.rate = 0.9;
       window.speechSynthesis.speak(utt);
+    }
+    // Optional: if a marketplace API key is connected (Settings), also sync
+    // this call to your Telegram channel. currentGame.id is a locally-generated
+    // id (not a marketplace game), so the backend treats it as an ad-hoc live
+    // session, namespaced to your operator id — fire-and-forget, doesn't block
+    // the call you already made.
+    if (mktApiKey && currentGame) {
+      mktCallNumber(mktApiKey, currentGame.id, n, currentGame.name).catch(() => {});
     }
     setTimeout(() => numInputRef.current?.focus(), 50);
   };
@@ -528,6 +547,11 @@ export function LiveGame({ tambola }: LiveGameProps) {
             {isActive && <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />}
             {currentGame.status.toUpperCase()}
           </Badge>
+          {mktApiKey && (
+            <span className="text-xs text-slate-400 flex items-center gap-1" title="Calls and claims sync to your Telegram channel">
+              <Radio className="w-3 h-3" /> synced
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setSoundEnabled(v => !v)}>
@@ -544,7 +568,10 @@ export function LiveGame({ tambola }: LiveGameProps) {
                   <Play className="w-4 h-4" /> Start Game
                 </Button>
               )}
-              <Button variant="outline" size="sm" onClick={() => { resetGame(); setShowSetup(true); }}>
+              <Button variant="outline" size="sm" onClick={() => {
+                if (mktApiKey && currentGame) mktResetLive(mktApiKey, currentGame.id, currentGame.name).catch(() => {});
+                resetGame(); setShowSetup(true);
+              }}>
                 <RotateCcw className="w-4 h-4" />
               </Button>
             </div>
