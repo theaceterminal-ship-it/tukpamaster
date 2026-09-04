@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { verifyDividend } from '@/lib/tambola';
+import { verifyDividend, findTicketByAnyId } from '@/lib/tambola';
 import { mktCallNumber, mktClaimPrize, mktResetLive } from '@/services/marketplaceApi';
 
 interface LiveGameProps {
@@ -101,15 +101,19 @@ function InlineVerifier({ tambola }: { tambola: ReturnType<typeof useTambola> })
     setClaimPhone('');
     if (!ticketId.trim() || !claimType) return;
 
-    let ticket = null;
-    for (const sheet of sheets) {
-      const t = sheet.tickets.find(t => t.id === ticketId.trim());
-      if (t) { ticket = t; break; }
-    }
-    if (!ticket) {
-      setResult({ valid: false, reason: 'Ticket not found.' });
+    const lookup = findTicketByAnyId(sheets, ticketId);
+    if (lookup.status === 'ambiguous-sheet') {
+      setResult({
+        valid: false,
+        reason: `Sheet ${lookup.sheetLabel} has 6 tickets — ask which one and enter its printed number: ${lookup.ticketNums.join(', ')}.`,
+      });
       return;
     }
+    if (lookup.status === 'not-found') {
+      setResult({ valid: false, reason: 'Ticket not found. Enter the number printed on the ticket itself.' });
+      return;
+    }
+    const ticket = lookup.ticket;
     if (calledNumbers.length === 0) {
       setResult({ valid: false, reason: 'No numbers called yet.' });
       return;
@@ -190,12 +194,12 @@ function InlineVerifier({ tambola }: { tambola: ReturnType<typeof useTambola> })
           <div className="border-t border-slate-100 pt-3 space-y-3">
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label className="text-xs">Ticket ID</Label>
+                <Label className="text-xs">Ticket Number</Label>
                 <Input
                   ref={inputRef}
                   value={ticketId}
                   onChange={e => { setTicketId(e.target.value); setResult(null); setClaimed(false); }}
-                  placeholder="SHEET-0001-01"
+                  placeholder="e.g. 3603 — the number printed on the ticket"
                   className="mt-1 text-xs h-8 font-mono"
                   onKeyDown={e => e.key === 'Enter' && handleVerify()}
                 />
@@ -287,12 +291,9 @@ function InlineVerifier({ tambola }: { tambola: ReturnType<typeof useTambola> })
 
             {/* Ticket preview */}
             {ticketId.trim() && (() => {
-              let ticket = null;
-              for (const sheet of sheets) {
-                const t = sheet.tickets.find(t => t.id === ticketId.trim());
-                if (t) { ticket = t; break; }
-              }
-              if (!ticket) return null;
+              const lookup = findTicketByAnyId(sheets, ticketId);
+              if (lookup.status !== 'found') return null;
+              const ticket = lookup.ticket;
               return (
                 <div className="border border-slate-100 rounded-lg p-2">
                   <p className="text-[10px] text-slate-400 font-mono mb-1.5">{ticket.id}</p>

@@ -1,5 +1,64 @@
 import type { Ticket, Sheet } from '@/types';
 
+// ─── Ticket lookup (Claim Verifier) ────────────────────────────────────────────
+//
+// The internal ticket id ("SHEET-0601-03") is never what a player reads off
+// their actual ticket. SheetFactory's PDF prints a *global sequential* number
+// per ticket instead — see renderClassicPDF/renderCompactPDF:
+//   firstTicketNum = (sheetNum - 1) * 6 + 1;  ticketNum = firstTicketNum + i
+// e.g. sheet 601's 3rd ticket prints "3603", nothing about "SHEET-0601-03".
+// A bare number could also be the "Sheet No." printed at the sheet's edge,
+// which is ambiguous on its own (a sheet has 6 different tickets). This tries,
+// in order: the internal id verbatim, the printed global ticket number
+// (unambiguous — resolves to exactly one ticket), then falls back to treating
+// it as a bare sheet number and reports the ambiguity instead of a bare
+// "not found" so the operator knows what to ask the player for next.
+
+export type TicketLookup =
+  | { status: 'found'; ticket: Ticket }
+  | { status: 'ambiguous-sheet'; sheetLabel: string; ticketNums: number[] }
+  | { status: 'not-found' };
+
+export function findTicketByAnyId(sheets: Sheet[], rawInput: string): TicketLookup {
+  const input = rawInput.trim();
+  if (!input) return { status: 'not-found' };
+
+  // 1. Exact internal id, as before (still works if someone has it memorized/logged).
+  for (const sheet of sheets) {
+    const t = sheet.tickets.find(t => t.id.toUpperCase() === input.toUpperCase());
+    if (t) return { status: 'found', ticket: t };
+  }
+
+  const digits = input.replace(/\D/g, '');
+  if (!digits) return { status: 'not-found' };
+  const g = parseInt(digits, 10);
+  if (!g || g < 1) return { status: 'not-found' };
+
+  // 2. Printed global sequential ticket number: invert
+  //    g = (sheetNum - 1) * 6 + position  =>  sheetNum = ceil(g/6), position = g - (sheetNum-1)*6
+  const sheetNum = Math.ceil(g / 6);
+  const position = g - (sheetNum - 1) * 6;
+  const expectedId = `SHEET-${String(sheetNum).padStart(4, '0')}-${String(position).padStart(2, '0')}`;
+  for (const sheet of sheets) {
+    const t = sheet.tickets.find(t => t.id === expectedId);
+    if (t) return { status: 'found', ticket: t };
+  }
+
+  // 3. Bare "Sheet No." — ambiguous (6 tickets/sheet), surface what to ask for.
+  const sheetId = `SHEET-${digits.padStart(4, '0')}`;
+  const matchedSheet = sheets.find(s => s.id === sheetId);
+  if (matchedSheet) {
+    const first = (g - 1) * 6 + 1;
+    return {
+      status: 'ambiguous-sheet',
+      sheetLabel: String(g),
+      ticketNums: matchedSheet.tickets.map((_, i) => first + i),
+    };
+  }
+
+  return { status: 'not-found' };
+}
+
 // Column ranges: col 0 = 1-9, col 1 = 10-19, ..., col 8 = 80-90
 const COL_RANGES: [number, number][] = [
   [1, 9], [10, 19], [20, 29], [30, 39], [40, 49],
