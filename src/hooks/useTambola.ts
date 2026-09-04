@@ -2,7 +2,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useLocalStorage } from './useLocalStorage';
 import { generateSheet, verifyDividend } from '@/lib/tambola';
-import { mktGenerateSheets, mktGetSheets, type MktGenSheet } from '@/services/marketplaceApi';
+import {
+  mktGenerateSheets, mktGetSheets, mktCreateGame, mktSetStatus, mktUploadThumbnail,
+  type MktGenSheet,
+} from '@/services/marketplaceApi';
 import type {
   Sheet, Agent, Player, GameSession, GameHistory,
   Winner, Dividend, AppPage, Order, UpiSettings, ScheduledGame, ScheduledGamePrize,
@@ -311,18 +314,21 @@ export function useTambola() {
     return newSheets;
   }, [sheetPrice]);
 
-  const generateSheetsForGame = useCallback(async (gameId: string, count: number) => {
+  const generateSheetsForGame = useCallback(async (gameId: string, count: number, mktGameId?: string) => {
     // Marketplace-connected: generate server-side (RNG can't be tampered with
     // client-side, and these tickets become verifiable via mktVerifyClaim).
     // New games from here on should always take this path.
     if (mktApiKey) {
-      const { sheetFrom, sheetTo } = await mktGenerateSheets(mktApiKey, count, gameId);
+      // Pass the real marketplace game id when this scheduled game already has
+      // one (see scheduleGame) — that's what lets the sheets actually count
+      // toward the listing's sheetFrom/sheetTo/sheetCount server-side, instead
+      // of generating untagged. Falls back to the local id (ad-hoc, untagged)
+      // if this game was scheduled before connecting to the marketplace.
+      const { sheetFrom, sheetTo } = await mktGenerateSheets(mktApiKey, count, mktGameId || gameId);
       const { sheets: fresh } = await mktGetSheets(mktApiKey, { from: sheetFrom, to: sheetTo });
-      // gameId here is this app's local scheduled-game id, which usually isn't
-      // a real marketplace game — the server can't tag generated_sheets.game_id
-      // with something that fails its foreign key, so it comes back untagged.
-      // Force the local id back on so the existing "sheets for this game" UI
-      // (SheetFactory, GameInventory) keeps working the same as before.
+      // The local scheduled-game id is always what the rest of this app's UI
+      // (SheetFactory, GameInventory) groups sheets by, regardless of whether
+      // the server also tagged them to a real marketplace game.
       const newSheets = fresh.map(s => ({ ...mktSheetToSheet(s), scheduledGameId: gameId }));
       const newIds = newSheets.map(s => s.id);
       setSheets(prev => [...prev, ...newSheets]);
@@ -484,7 +490,10 @@ export function useTambola() {
 
   // ─── Game operations ─────────────────────────────────────────────────────────
 
-  const createGame = useCallback(async (name: string, sheetIds: string[], customDividends?: Dividend[]) => {
+  const createGame = useCallback(async (
+    name: string, sheetIds: string[], customDividends?: Dividend[],
+    mktGameId?: string, joinLink?: string, joinDetails?: string,
+  ) => {
     const dividends = customDividends || DEFAULT_DIVIDENDS.map((d, i) => ({ ...d, id: `DIV-${Date.now()}-${i}` }));
     const game: GameSession = {
       id: `GAME-${Date.now()}`, name, status: 'setup',
@@ -492,6 +501,7 @@ export function useTambola() {
       dividends, players: [], sheetIds,
       totalPrizePool: dividends.reduce((s, d) => s + d.prize, 0),
       pricePerSheet: sheetPrice,
+      mktGameId, joinLink, joinDetails,
     };
     setCurrentGameState(game);
     await supabase.from('game_sessions').insert({
@@ -565,9 +575,10 @@ export function useTambola() {
     prizes: ScheduledGamePrize[]; hasJackpot: boolean; jackpotAmount: number;
     jackpotThingName?: string; jackpotThingPhoto?: string;
     sheetIds: string[]; ticketPrice: number;
+    joinLink?: string; joinDetails?: string;
   }): Promise<ScheduledGame> => {
     const estimatedPrizePool = input.prizes.reduce((s, p) => s + p.amount, 0) + (input.hasJackpot ? input.jackpotAmount : 0);
-    const game: ScheduledGame = { ...input, id: `SCHED-${Date.now()}`, estimatedPrizePool };
+    let game: ScheduledGame = { ...input, id: `SCHED-${Date.now()}`, estimatedPrizePool };
     setScheduledGames(prev => [...prev, game]);
     setSheets(prev => prev.map(s => input.sheetIds.includes(s.id) ? { ...s, scheduledGameId: game.id } : s));
     const { error } = await supabase.from('scheduled_games').insert({
@@ -583,8 +594,53 @@ export function useTambola() {
       const { error: e2 } = await supabase.from('sheets').update({ game_id: game.id }).in('id', input.sheetIds);
       if (e2) console.error('[scheduleGame] sheets update error:', e2);
     }
+
+    // Marketplace-connected: also create a real listing (draft — not visible
+    // to players until explicitly listed) so this game can be found/purchased
+    // through the shared marketplace and announced on the operator's Telegram
+    // channel, same as Plan A. Best-effort: local scheduling still succeeds
+    // even if this fails (e.g. offline).
+    if (mktApiKey) {
+      try {
+        let thumbnail: string | null = input.backgroundImage || null;
+        if (thumbnail?.startsWith('data:')) {
+          const uploaded = await mktUploadThumbnail(mktApiKey, `${game.id}.jpg`, thumbnail.split(',')[1] ?? '');
+          thumbnail = uploaded.url;
+        }
+        const mktPrizes = [
+          ...input.prizes.map(p => ({ name: p.label, kind: p.thingName ? 'physical' : 'cash', amount: p.amount })),
+          ...(input.hasJackpot ? [{ name: 'Jackpot', kind: input.jackpotThingName ? 'physical' : 'cash', amount: input.jackpotAmount }] : []),
+        ];
+        const d = new Date(input.scheduledAt);
+        const { game: mktGame } = await mktCreateGame(mktApiKey, {
+          name: input.name,
+          gameDate: d.toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+          gameDateRaw: input.scheduledAt,
+          joinLink: input.joinLink || null,
+          joinDetails: input.joinDetails || null,
+          pricePerSheet: input.ticketPrice,
+          prizes: mktPrizes,
+          thumbnail,
+        });
+        game = { ...game, mktGameId: mktGame.id };
+        setScheduledGames(prev => prev.map(g => g.id === game.id ? game : g));
+      } catch (e) {
+        console.error('[scheduleGame] marketplace create-game failed (local schedule still saved):', e);
+      }
+    }
+
     return game;
-  }, []);
+  }, [mktApiKey]);
+
+  // Makes a scheduled game's marketplace listing publicly visible/purchasable
+  // and broadcasts it to the operator's Telegram channel — deliberately
+  // separate from going live, so players can buy ahead of game night instead
+  // of only finding out when the operator starts calling numbers.
+  const listScheduledGame = useCallback(async (id: string) => {
+    const game = scheduledGames.find(g => g.id === id);
+    if (!game?.mktGameId || !mktApiKey) throw new Error('Connect your marketplace API key in Profile first.');
+    await mktSetStatus(mktApiKey, game.mktGameId, 'listed');
+  }, [scheduledGames, mktApiKey]);
 
   const removeScheduledGame = useCallback(async (id: string) => {
     setScheduledGames(prev => prev.filter(g => g.id !== id));
@@ -649,7 +705,7 @@ export function useTambola() {
     loading,
     sheets, agents, players, orders, currentGame, gameHistory, currentPage, stats,
     sheetPrice, setSheetPrice, upiSettings, setUpiSettings,
-    scheduledGames, scheduleGame, removeScheduledGame, rescheduleGame, linkScheduledGame,
+    scheduledGames, scheduleGame, listScheduledGame, removeScheduledGame, rescheduleGame, linkScheduledGame,
     mktApiKey, setMktApiKey,
     setCurrentPage,
     generateSingleSheet, generateMultipleSheets, generateSheetsForGame, deleteSheetsById,

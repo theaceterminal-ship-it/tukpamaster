@@ -90,6 +90,11 @@ export interface GameSession {
   totalPrizePool: number;
   pricePerSheet?: number;
   scheduledAt?: string;
+  /** games.id in tungbola-market, when this session is backed by a real
+   *  marketplace listing (vs. purely local/ad-hoc). */
+  mktGameId?: string;
+  joinLink?: string;
+  joinDetails?: string;
 }
 
 export interface GameHistory {
@@ -134,6 +139,10 @@ export interface ScheduledGame {
   ticketPrice: number;
   estimatedPrizePool: number;
   sessionId?: string;
+  /** games.id in tungbola-market, once created there (see scheduleGame). */
+  mktGameId?: string;
+  joinLink?: string;
+  joinDetails?: string;
 }
 
 export type AppPage =

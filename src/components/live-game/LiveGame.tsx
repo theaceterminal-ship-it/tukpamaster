@@ -139,7 +139,7 @@ function InlineVerifier({ tambola }: { tambola: ReturnType<typeof useTambola> })
     if (mktApiKey) {
       setVerifying(true);
       try {
-        const res = await mktVerifyClaim(mktApiKey, currentGame.id, currentGame.name, ticketId.trim(), claimType);
+        const res = await mktVerifyClaim(mktApiKey, currentGame.mktGameId ?? currentGame.id, currentGame.name, ticketId.trim(), claimType);
         setResult({ valid: res.valid, reason: res.reason });
       } catch (e) {
         setResult({ valid: false, reason: e instanceof Error ? e.message : 'Ticket not found.' });
@@ -186,7 +186,7 @@ function InlineVerifier({ tambola }: { tambola: ReturnType<typeof useTambola> })
     // Optional Telegram sync — see handleCallNumber for why gameName/amount/
     // allPrizes are needed (this is an ad-hoc, not marketplace, game).
     if (mktApiKey) {
-      mktClaimPrize(mktApiKey, currentGame.id, div.name, winnerLabel, {
+      mktClaimPrize(mktApiKey, currentGame.mktGameId ?? currentGame.id, div.name, winnerLabel, {
         gameName: currentGame.name, amount: div.prize,
         allPrizes: currentGame.dividends.map(d => ({ name: d.name, amount: d.prize })),
       }).catch(() => {});
@@ -438,7 +438,7 @@ function GameInventory({ game, tambola }: { game: ScheduledGame; tambola: Return
 export function LiveGame({ tambola }: LiveGameProps) {
   const {
     currentGame, createGame, startGame, callNumber, endGame, resetGame,
-    scheduleGame, scheduledGames, removeScheduledGame, rescheduleGame, linkScheduledGame,
+    scheduleGame, listScheduledGame, scheduledGames, removeScheduledGame, rescheduleGame, linkScheduledGame,
     mktApiKey,
   } = tambola;
 
@@ -450,6 +450,8 @@ export function LiveGame({ tambola }: LiveGameProps) {
   const [manualNum,     setManualNum]     = useState('');
   const [callError,     setCallError]     = useState('');
   const [lastCalled,    setLastCalled]    = useState<number | null>(null);
+  const [listingId,     setListingId]     = useState<string | null>(null);
+  const [listingErr,    setListingErr]    = useState('');
   const numInputRef = useRef<HTMLInputElement>(null);
 
   const pendingScheduled = scheduledGames.filter(g => !g.sessionId);
@@ -468,9 +470,20 @@ export function LiveGame({ tambola }: LiveGameProps) {
       id: `DIV-${Date.now()}-jp`, type: 'full-house',
       name: 'Jackpot', prize: g.jackpotAmount, claimed: false,
     });
-    const game = await createGame(g.name, g.sheetIds, dividends);
+    const game = await createGame(g.name, g.sheetIds, dividends, g.mktGameId, g.joinLink, g.joinDetails);
     linkScheduledGame(g.id, game.id);
     setShowSetup(false);
+  };
+
+  const handleListGame = async (g: ScheduledGame) => {
+    setListingId(g.id); setListingErr('');
+    try {
+      await listScheduledGame(g.id);
+    } catch (e) {
+      setListingErr(e instanceof Error ? e.message : 'Failed to list game');
+    } finally {
+      setListingId(null);
+    }
   };
 
   // ── Manual number call ──────────────────────────────────────────────────────
@@ -495,12 +508,14 @@ export function LiveGame({ tambola }: LiveGameProps) {
       window.speechSynthesis.speak(utt);
     }
     // Optional: if a marketplace API key is connected (Settings), also sync
-    // this call to your Telegram channel. currentGame.id is a locally-generated
-    // id (not a marketplace game), so the backend treats it as an ad-hoc live
-    // session, namespaced to your operator id — fire-and-forget, doesn't block
-    // the call you already made.
+    // this call to your Telegram channel. When this session is backed by a
+    // real marketplace listing (mktGameId), target that game directly so the
+    // broadcast uses its real name/prizes; otherwise fall back to
+    // currentGame.id, which the backend treats as an ad-hoc live session
+    // namespaced to your operator id. Fire-and-forget, doesn't block the call
+    // you already made.
     if (mktApiKey && currentGame) {
-      mktCallNumber(mktApiKey, currentGame.id, n, currentGame.name).catch(() => {});
+      mktCallNumber(mktApiKey, currentGame.mktGameId ?? currentGame.id, n, currentGame.name).catch(() => {});
     }
     setTimeout(() => numInputRef.current?.focus(), 50);
   };
@@ -522,7 +537,7 @@ export function LiveGame({ tambola }: LiveGameProps) {
           </Button>
         </div>
 
-        <ScheduleGameDialog open={schedDialogOpen} onClose={() => setSchedDialogOpen(false)} defaultTicketPrice={tambola.sheetPrice} onSchedule={scheduleGame} />
+        <ScheduleGameDialog open={schedDialogOpen} onClose={() => setSchedDialogOpen(false)} defaultTicketPrice={tambola.sheetPrice} apiKey={mktApiKey} onSchedule={scheduleGame} />
 
         {/* Scheduled games */}
         {pendingScheduled.length > 0 ? (
@@ -577,13 +592,31 @@ export function LiveGame({ tambola }: LiveGameProps) {
                         <Button size="sm" variant="outline" onClick={() => { setRescheduleId(null); setRescheduleAt(''); }} className="text-xs">Cancel</Button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1 px-3 pb-2.5">
+                      <div className="flex items-center gap-1 px-3 pb-2.5 flex-wrap">
+                        {g.mktGameId ? (
+                          <button
+                            onClick={() => handleListGame(g)}
+                            disabled={listingId === g.id || !g.sheetIds.length}
+                            title={!g.sheetIds.length ? 'Generate sheets for this game first' : ''}
+                            className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-40"
+                          >
+                            {listingId === g.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Rocket className="w-3 h-3" />}
+                            List on Marketplace
+                          </button>
+                        ) : (
+                          <span className="text-xs text-slate-400" title="Connect your marketplace API key in Profile to list games">
+                            Not connected to marketplace
+                          </span>
+                        )}
                         <button onClick={() => { setRescheduleId(g.id); setRescheduleAt(new Date(g.scheduledAt).toISOString().slice(0, 16)); }} className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2.5 py-1 rounded-lg transition-colors">
                           <Clock className="w-3 h-3" /> Reschedule
                         </button>
                         <button onClick={() => { if (window.confirm(`Delete "${g.name}"?`)) removeScheduledGame(g.id); }} className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-2.5 py-1 rounded-lg transition-colors">
                           <span>🗑</span> Delete
                         </button>
+                        {listingId === null && listingErr && (
+                          <p className="w-full text-xs text-red-500 mt-1">{listingErr}</p>
+                        )}
                       </div>
                     )}
                   </div>
@@ -641,7 +674,7 @@ export function LiveGame({ tambola }: LiveGameProps) {
                 </Button>
               )}
               <Button variant="outline" size="sm" onClick={() => {
-                if (mktApiKey && currentGame) mktResetLive(mktApiKey, currentGame.id, currentGame.name).catch(() => {});
+                if (mktApiKey && currentGame) mktResetLive(mktApiKey, currentGame.mktGameId ?? currentGame.id, currentGame.name).catch(() => {});
                 resetGame(); setShowSetup(true);
               }}>
                 <RotateCcw className="w-4 h-4" />

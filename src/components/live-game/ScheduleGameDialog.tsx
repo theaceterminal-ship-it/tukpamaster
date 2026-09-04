@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  Calendar, Star, Image, Upload, X, Zap, Trophy, CheckCircle2, Circle,
+  Calendar, Star, Image, Upload, X, Zap, Trophy, CheckCircle2, Circle, Video, Loader2,
 } from 'lucide-react';
+import { mktZoomCreateMeeting, mktGetInfo } from '@/services/marketplaceApi';
 
 // ─── Prize type definitions ───────────────────────────────────────────────────
 
@@ -54,6 +55,7 @@ interface ScheduleGameDialogProps {
   open: boolean;
   onClose: () => void;
   defaultTicketPrice: number;
+  apiKey?: string;
   onSchedule: (input: {
     name: string;
     scheduledAt: string;
@@ -65,13 +67,15 @@ interface ScheduleGameDialogProps {
     jackpotThingPhoto?: string;
     sheetIds: string[];
     ticketPrice: number;
+    joinLink?: string;
+    joinDetails?: string;
   }) => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function ScheduleGameDialog({
-  open, onClose, defaultTicketPrice, onSchedule,
+  open, onClose, defaultTicketPrice, apiKey, onSchedule,
 }: ScheduleGameDialogProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const urlInputRef = useRef<HTMLInputElement>(null);
@@ -83,6 +87,40 @@ export function ScheduleGameDialog({
   const [bgUrlDraft, setBgUrlDraft] = useState('');
   const [imageLoading, setImageLoading] = useState(false);
   const [ticketPrice, setTicketPrice] = useState(String(defaultTicketPrice || 50));
+
+  // Zoom / joining info
+  const [joinLink, setJoinLink] = useState('');
+  const [joinDetails, setJoinDetails] = useState('');
+  const [zoomScheduling, setZoomScheduling] = useState(false);
+  const [zoomErr, setZoomErr] = useState('');
+  const [zoomConnected, setZoomConnected] = useState<boolean | null>(null);
+
+  async function checkZoom() {
+    if (!apiKey || zoomConnected !== null) return;
+    try {
+      const info = await mktGetInfo(apiKey);
+      setZoomConnected(info.operator.zoomConnected ?? false);
+    } catch { setZoomConnected(false); }
+  }
+
+  async function scheduleZoom() {
+    if (!apiKey) { setZoomErr('Connect your marketplace API key in Profile first.'); return; }
+    if (!scheduledAt) { setZoomErr('Set date & time first'); return; }
+    setZoomScheduling(true); setZoomErr('');
+    try {
+      const { joinUrl, joinDetails: details } = await mktZoomCreateMeeting(apiKey, {
+        topic: name.trim() || 'Tambola Game',
+        startTime: new Date(scheduledAt).toISOString(),
+        duration: 60,
+      });
+      setJoinLink(joinUrl);
+      setJoinDetails(details);
+    } catch (e) {
+      setZoomErr(e instanceof Error ? e.message : 'Failed to schedule meeting');
+    } finally {
+      setZoomScheduling(false);
+    }
+  }
 
   // Prizes
   const [activeTypes, setActiveTypes] = useState<Set<string>>(
@@ -187,10 +225,13 @@ export function ScheduleGameDialog({
       jackpotThingPhoto: hasJackpot && jackpotThingPhoto ? jackpotThingPhoto : undefined,
       sheetIds: [],
       ticketPrice: parseInt(ticketPrice) || defaultTicketPrice || 50,
+      joinLink: joinLink.trim() || undefined,
+      joinDetails: joinDetails.trim() || undefined,
     });
     // Reset
     setName(''); setScheduledAt(''); setBgImage(''); setBgUrlDraft('');
     setTicketPrice(String(defaultTicketPrice || 50));
+    setJoinLink(''); setJoinDetails(''); setZoomErr('');
     setActiveTypes(new Set(['early-five', 'top-line', 'middle-line', 'bottom-line', 'full-house']));
     setPrizeAmounts(Object.fromEntries(ALL_PRIZE_TYPES.map(t => [t.type, t.default])));
     setHasJackpot(false); setJackpotAmount(10000);
@@ -253,6 +294,45 @@ export function ScheduleGameDialog({
                   className="text-lg font-bold w-28"
                 />
               </div>
+            </div>
+
+            {/* Zoom / joining info */}
+            <div>
+              <Label className="text-xs font-semibold text-slate-600">🔗 Game Joining Link</Label>
+              <button
+                type="button"
+                onClick={() => { checkZoom(); scheduleZoom(); }}
+                disabled={zoomScheduling || !scheduledAt}
+                className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-colors mt-1 mb-2 ${
+                  zoomConnected === false
+                    ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50'
+                }`}
+                title={!scheduledAt ? 'Set date & time first' : zoomConnected === false ? 'Connect Zoom in Profile first' : ''}
+              >
+                {zoomScheduling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Video className="w-4 h-4" />}
+                {zoomScheduling ? 'Scheduling…' : zoomConnected === false ? 'Zoom not connected — set link manually' : 'Schedule in Zoom'}
+              </button>
+              {zoomErr && <p className="text-red-500 text-xs mb-1">{zoomErr}</p>}
+              {!scheduledAt && <p className="text-amber-500 text-xs mb-1">↑ Set date & time above first</p>}
+              <Input
+                value={joinLink}
+                onChange={e => setJoinLink(e.target.value)}
+                placeholder="Auto-filled after scheduling, or paste manually"
+                className="text-sm"
+              />
+              <p className="text-xs text-slate-400 mt-1">Sent to every player when their order is approved</p>
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold text-slate-600">📝 Meeting ID, Passcode & Notes</Label>
+              <textarea
+                value={joinDetails}
+                onChange={e => setJoinDetails(e.target.value)}
+                placeholder={'Auto-filled after scheduling, or type manually:\nMeeting ID: 824 4739 3208\nPasscode: 601991'}
+                rows={2}
+                className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
+              />
             </div>
 
             {/* Background image */}
