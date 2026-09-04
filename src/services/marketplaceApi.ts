@@ -244,3 +244,28 @@ export async function mktUpdateProfile(
 ): Promise<void> {
   return post(apiKey, { action: 'update-profile', ...profile });
 }
+
+// ── Plan B: server-generated ticket sheets ──────────────────────────────────
+// Generation and verification run on the backend so ticket numbers can't be
+// fabricated client-side — see api/_tambola.js in tungbola-market.
+
+export interface MktGenTicket { pos: number; numbers: (number | null)[][] }
+export interface MktGenSheet { n: number; gameId: string | null; tickets: MktGenTicket[]; status: string; createdAt: number }
+
+export async function mktGenerateSheets(
+  apiKey: string, count: number, gameId?: string
+): Promise<{ sheetFrom: number; sheetTo: number; count: number }> {
+  return post(apiKey, { action: 'generate-sheets', count, gameId });
+}
+
+export async function mktGetSheets(
+  apiKey: string, opts?: { gameId?: string; from?: number; to?: number }
+): Promise<{ sheets: MktGenSheet[] }> {
+  return post(apiKey, { action: 'get-sheets', ...opts });
+}
+
+export async function mktVerifyClaim(
+  apiKey: string, gameId: string, gameName: string, ticketRef: string, claimType: string
+): Promise<{ valid: boolean; reason: string; ticketId: string; calledCount: number }> {
+  return post(apiKey, { action: 'verify-claim', gameId, gameName, ticketRef, claimType });
+}

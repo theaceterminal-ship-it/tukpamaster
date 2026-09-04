@@ -3,7 +3,7 @@ import {
   Radio, Play, RotateCcw, Volume2, VolumeX, Trophy,
   Calendar, Clock, Rocket, ShieldCheck, CheckCircle,
   XCircle, ChevronDown, ChevronUp, Package,
-  TrendingUp, Banknote,
+  TrendingUp, Banknote, Loader2,
 } from 'lucide-react';
 import { ScheduleGameDialog } from './ScheduleGameDialog';
 import type { useTambola } from '@/hooks/useTambola';
@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { verifyDividend, findTicketByAnyId } from '@/lib/tambola';
-import { mktCallNumber, mktClaimPrize, mktResetLive } from '@/services/marketplaceApi';
+import { mktCallNumber, mktClaimPrize, mktResetLive, mktVerifyClaim } from '@/services/marketplaceApi';
 
 interface LiveGameProps {
   tambola: ReturnType<typeof useTambola>;
@@ -78,6 +78,7 @@ function InlineVerifier({ tambola }: { tambola: ReturnType<typeof useTambola> })
   const [claimName,  setClaimName]  = useState('');
   const [claimPhone, setClaimPhone] = useState('');
   const [claimed,    setClaimed]    = useState(false);
+  const [verifying,  setVerifying]  = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const calledNumbers = currentGame?.calledNumbers ?? [];
@@ -94,13 +95,35 @@ function InlineVerifier({ tambola }: { tambola: ReturnType<typeof useTambola> })
     currentGame?.dividends.filter(d => !d.claimed).map(d => d.type) ?? [],
   );
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     setResult(null);
     setClaimed(false);
     setClaimName('');
     setClaimPhone('');
-    if (!ticketId.trim() || !claimType) return;
+    if (!ticketId.trim() || !claimType || !currentGame) return;
 
+    const div = currentGame.dividends.find(d => d.type === claimType);
+    if (div?.claimed) {
+      setResult({ valid: false, reason: `Already claimed by ${div.winner}.` });
+      return;
+    }
+
+    // Marketplace-connected: verify server-side against real, tamper-proof
+    // ticket + called-number data instead of trusting the local copy.
+    if (mktApiKey) {
+      setVerifying(true);
+      try {
+        const res = await mktVerifyClaim(mktApiKey, currentGame.id, currentGame.name, ticketId.trim(), claimType);
+        setResult({ valid: res.valid, reason: res.reason });
+      } catch (e) {
+        setResult({ valid: false, reason: e instanceof Error ? e.message : 'Ticket not found.' });
+      } finally {
+        setVerifying(false);
+      }
+      return;
+    }
+
+    // Legacy local path — unchanged, for operators not yet connected to the marketplace.
     const lookup = findTicketByAnyId(sheets, ticketId);
     if (lookup.status === 'ambiguous-sheet') {
       setResult({
@@ -116,11 +139,6 @@ function InlineVerifier({ tambola }: { tambola: ReturnType<typeof useTambola> })
     const ticket = lookup.ticket;
     if (calledNumbers.length === 0) {
       setResult({ valid: false, reason: 'No numbers called yet.' });
-      return;
-    }
-    const div = currentGame?.dividends.find(d => d.type === claimType);
-    if (div?.claimed) {
-      setResult({ valid: false, reason: `Already claimed by ${div.winner}.` });
       return;
     }
     const valid = verifyDividend(ticket, calledNumbers, claimType);
@@ -226,11 +244,11 @@ function InlineVerifier({ tambola }: { tambola: ReturnType<typeof useTambola> })
 
             <Button
               onClick={handleVerify}
-              disabled={!ticketId.trim() || !claimType}
+              disabled={!ticketId.trim() || !claimType || verifying}
               size="sm"
               className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 gap-2"
             >
-              <ShieldCheck className="w-3.5 h-3.5" /> Verify Claim
+              {verifying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />} Verify Claim
             </Button>
 
             {/* Result */}

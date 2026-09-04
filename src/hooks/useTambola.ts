@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useLocalStorage } from './useLocalStorage';
 import { generateSheet, verifyDividend } from '@/lib/tambola';
+import { mktGenerateSheets, mktGetSheets, type MktGenSheet } from '@/services/marketplaceApi';
 import type {
   Sheet, Agent, Player, GameSession, GameHistory,
   Winner, Dividend, AppPage, Order, UpiSettings, ScheduledGame, ScheduledGamePrize,
@@ -17,6 +18,27 @@ function dbToSheet(row: Record<string, unknown>): Sheet {
     assignedTo: (row.assigned_to as string) ?? undefined,
     scheduledGameId: (row.game_id as string) ?? undefined,
     createdAt: new Date().toISOString(),
+  };
+}
+
+// Marketplace-generated sheet → the same Sheet/Ticket shape everything else in
+// this app already works with (SheetFactory, PDF export, search…), so nothing
+// downstream needs to know or care where a sheet's data actually came from.
+function mktSheetToSheet(s: MktGenSheet): Sheet {
+  const id = `SHEET-${String(s.n).padStart(4, '0')}`;
+  return {
+    id,
+    tickets: [...s.tickets]
+      .sort((a, b) => a.pos - b.pos)
+      .map(t => ({
+        id: `${id}-${String(t.pos).padStart(2, '0')}`,
+        sheetId: id,
+        numbers: t.numbers,
+        markedNumbers: new Set<number>(),
+      })),
+    status: (s.status as Sheet['status']) || 'available',
+    createdAt: new Date(s.createdAt || Date.now()).toISOString(),
+    scheduledGameId: s.gameId ?? undefined,
   };
 }
 
@@ -163,6 +185,21 @@ export function useTambola() {
     setSheets(all);
   }, []);
 
+  // Sheets generated server-side against the shared marketplace (see
+  // mktGenerateSheets) — merged in alongside the legacy local ones so nothing
+  // about existing sheets/games changes; only new generation targets this.
+  const fetchMktSheets = useCallback(async () => {
+    if (!mktApiKey) return;
+    try {
+      const { sheets: mktSheets } = await mktGetSheets(mktApiKey);
+      const converted = mktSheets.map(mktSheetToSheet);
+      const freshIds = new Set(converted.map(c => c.id));
+      // Replace any previously-loaded copies of these same sheets with fresh
+      // data; everything else (legacy local sheets) is left untouched.
+      setSheets(prev => [...prev.filter(s => !freshIds.has(s.id)), ...converted]);
+    } catch { /* not connected, or offline — leave local sheets as they are */ }
+  }, [mktApiKey]);
+
   const fetchAgents = useCallback(async () => {
     const { data } = await supabase.from('agents').select('*');
     if (data) setAgents(data.map(dbToAgent));
@@ -208,7 +245,7 @@ export function useTambola() {
   useEffect(() => {
     const loadAll = async () => {
       await Promise.all([
-        fetchSheets(), fetchAgents(), fetchPlayers(), fetchOrders(),
+        fetchSheets(), fetchMktSheets(), fetchAgents(), fetchPlayers(), fetchOrders(),
         fetchScheduledGames(), fetchGameSession(), fetchGameHistory(), fetchSettings(),
       ]);
       setLoading(false);
@@ -227,7 +264,7 @@ export function useTambola() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [fetchSheets, fetchAgents, fetchPlayers, fetchOrders, fetchScheduledGames, fetchGameSession, fetchGameHistory, fetchSettings]);
+  }, [fetchSheets, fetchMktSheets, fetchAgents, fetchPlayers, fetchOrders, fetchScheduledGames, fetchGameSession, fetchGameHistory, fetchSettings]);
 
   // ─── Settings ───────────────────────────────────────────────────────────────
 
@@ -265,6 +302,25 @@ export function useTambola() {
   }, [sheetPrice]);
 
   const generateSheetsForGame = useCallback(async (gameId: string, count: number) => {
+    // Marketplace-connected: generate server-side (RNG can't be tampered with
+    // client-side, and these tickets become verifiable via mktVerifyClaim).
+    // New games from here on should always take this path.
+    if (mktApiKey) {
+      const { sheetFrom, sheetTo } = await mktGenerateSheets(mktApiKey, count, gameId);
+      const { sheets: fresh } = await mktGetSheets(mktApiKey, { from: sheetFrom, to: sheetTo });
+      // gameId here is this app's local scheduled-game id, which usually isn't
+      // a real marketplace game — the server can't tag generated_sheets.game_id
+      // with something that fails its foreign key, so it comes back untagged.
+      // Force the local id back on so the existing "sheets for this game" UI
+      // (SheetFactory, GameInventory) keeps working the same as before.
+      const newSheets = fresh.map(s => ({ ...mktSheetToSheet(s), scheduledGameId: gameId }));
+      const newIds = newSheets.map(s => s.id);
+      setSheets(prev => [...prev, ...newSheets]);
+      setScheduledGames(prev => prev.map(g => g.id === gameId ? { ...g, sheetIds: [...g.sheetIds, ...newIds] } : g));
+      return newSheets;
+    }
+
+    // Legacy local path — unchanged, for operators not yet connected to the marketplace.
     const startId   = sheetsRef.current.length + 1;
     const newSheets: Sheet[] = [];
     for (let i = 0; i < count; i++) {
@@ -280,7 +336,7 @@ export function useTambola() {
     await supabase.from('scheduled_games').update({ sheet_ids: updatedIds }).eq('id', gameId);
     await fetchScheduledGames();
     return newSheets;
-  }, [sheetPrice, fetchScheduledGames]);
+  }, [sheetPrice, fetchScheduledGames, mktApiKey]);
 
   const deleteSheetsById = useCallback(async (ids: string[]) => {
     setSheets(prev => prev.filter(s => !ids.includes(s.id)));
