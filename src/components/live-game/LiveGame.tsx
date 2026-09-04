@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import {
   Radio, Play, RotateCcw, Volume2, VolumeX, Trophy,
   Calendar, Clock, Rocket, ShieldCheck, CheckCircle,
@@ -79,7 +79,33 @@ function InlineVerifier({ tambola }: { tambola: ReturnType<typeof useTambola> })
   const [claimPhone, setClaimPhone] = useState('');
   const [claimed,    setClaimed]    = useState(false);
   const [verifying,  setVerifying]  = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Flat, searchable index of every ticket across all your sheets — printed
+  // number is what a player actually reads off their ticket, so that's what's
+  // searched/shown, not the internal id.
+  const ticketIndex = useMemo(() => {
+    const out: { printedNum: number; sheetLabel: string; ticketId: string }[] = [];
+    for (const sheet of sheets) {
+      const sheetN = parseInt(sheet.id.replace('SHEET-', ''), 10);
+      if (!sheetN) continue;
+      for (const ticket of sheet.tickets) {
+        const pos = parseInt(ticket.id.split('-').pop() || '', 10);
+        if (!pos) continue;
+        out.push({ printedNum: (sheetN - 1) * 6 + pos, sheetLabel: String(sheetN), ticketId: ticket.id });
+      }
+    }
+    return out.sort((a, b) => a.printedNum - b.printedNum);
+  }, [sheets]);
+
+  const filteredTickets = useMemo(() => {
+    const q = ticketId.trim();
+    const pool = q
+      ? ticketIndex.filter(t => String(t.printedNum).includes(q) || t.sheetLabel.includes(q))
+      : ticketIndex;
+    return pool.slice(0, 20);
+  }, [ticketIndex, ticketId]);
 
   const calledNumbers = currentGame?.calledNumbers ?? [];
   const calledSet     = new Set(calledNumbers);
@@ -211,16 +237,43 @@ function InlineVerifier({ tambola }: { tambola: ReturnType<typeof useTambola> })
 
           <div className="border-t border-slate-100 pt-3 space-y-3">
             <div className="grid grid-cols-2 gap-2">
-              <div>
+              <div className="relative">
                 <Label className="text-xs">Ticket Number</Label>
                 <Input
                   ref={inputRef}
                   value={ticketId}
-                  onChange={e => { setTicketId(e.target.value); setResult(null); setClaimed(false); }}
-                  placeholder="e.g. 3603 — the number printed on the ticket"
+                  onChange={e => { setTicketId(e.target.value); setResult(null); setClaimed(false); setPickerOpen(true); }}
+                  onFocus={() => setPickerOpen(true)}
+                  onBlur={() => setPickerOpen(false)}
+                  placeholder="Search or pick a ticket…"
                   className="mt-1 text-xs h-8 font-mono"
                   onKeyDown={e => e.key === 'Enter' && handleVerify()}
                 />
+                {pickerOpen && filteredTickets.length > 0 && (
+                  <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-52 overflow-y-auto">
+                    {filteredTickets.map(t => (
+                      <button
+                        key={t.ticketId}
+                        type="button"
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => {
+                          setTicketId(String(t.printedNum));
+                          setPickerOpen(false);
+                          setResult(null); setClaimed(false);
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 text-xs hover:bg-amber-50 flex items-center justify-between gap-2"
+                      >
+                        <span className="font-mono font-bold text-slate-700 shrink-0">#{t.printedNum}</span>
+                        <span className="text-slate-400 truncate">Sheet {t.sheetLabel}</span>
+                      </button>
+                    ))}
+                    {ticketIndex.length > filteredTickets.length && (
+                      <p className="px-2.5 py-1.5 text-[10px] text-slate-400 border-t border-slate-100">
+                        {ticketIndex.length} tickets total — keep typing to narrow down
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
               <div>
                 <Label className="text-xs">Claim Type</Label>

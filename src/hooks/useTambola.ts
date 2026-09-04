@@ -182,7 +182,11 @@ export function useTambola() {
       if (data.length < BATCH) break;
       from += BATCH;
     }
-    setSheets(all);
+    // Merge, don't replace — this also re-runs on every realtime change to the
+    // legacy sheets table, and a blind setSheets(all) would wipe out
+    // marketplace-sourced sheets (fetchMktSheets) loaded since then.
+    const freshIds = new Set(all.map(s => s.id));
+    setSheets(prev => [...prev.filter(s => !freshIds.has(s.id)), ...all]);
   }, []);
 
   // Sheets generated server-side against the shared marketplace (see
@@ -244,8 +248,14 @@ export function useTambola() {
 
   useEffect(() => {
     const loadAll = async () => {
+      // fetchSheets first, on its own — both it and fetchMktSheets write to the
+      // same sheets state; running them concurrently races (whichever's
+      // setSheets call lands last would win and the other's data vanishes).
+      // fetchMktSheets merges onto whatever fetchSheets already set, so
+      // sequencing them removes the race entirely.
+      await fetchSheets();
       await Promise.all([
-        fetchSheets(), fetchMktSheets(), fetchAgents(), fetchPlayers(), fetchOrders(),
+        fetchMktSheets(), fetchAgents(), fetchPlayers(), fetchOrders(),
         fetchScheduledGames(), fetchGameSession(), fetchGameHistory(), fetchSettings(),
       ]);
       setLoading(false);
