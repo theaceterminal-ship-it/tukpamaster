@@ -17,7 +17,7 @@ interface AgentNetworkProps {
 }
 
 const DEFAULT_CONFIG: LayoutConfig = {
-  template: 'compact',
+  template: 'classic',
   eventName: 'Silver Tambola Hub',
   showWatermark: false,
   watermarkText: '',

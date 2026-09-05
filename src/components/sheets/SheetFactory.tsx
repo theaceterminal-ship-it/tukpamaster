@@ -224,7 +224,7 @@ export function SheetFactory({ tambola }: SheetFactoryProps) {
   const [previewId,       setPreviewId]       = useState('');
 
   const [config, setConfig] = useState<LayoutConfig>({
-    template:      'compact',
+    template:      'classic',
     eventName:     DEFAULT_EVENT_NAME,
     showWatermark: false,
     watermarkText: '',

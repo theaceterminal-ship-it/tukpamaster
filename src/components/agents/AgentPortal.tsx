@@ -110,7 +110,7 @@ function GameGroupCard({
   const [page,        setPage]        = useState(1);
   const [selected,    setSelected]    = useState<Set<string>>(new Set());
   const [layout,      setLayout]      = useState(2);
-  const [template,    setTemplate]    = useState<'compact' | 'classic'>('compact');
+  const [template,    setTemplate]    = useState<'compact' | 'classic'>('classic');
   const [downloading, setDownloading] = useState(false);
   const [buyerOpen,   setBuyerOpen]   = useState(false);
   const [buyerName,   setBuyerName]   = useState('');
