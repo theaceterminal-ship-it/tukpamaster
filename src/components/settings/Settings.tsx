@@ -20,14 +20,13 @@ interface Props {
 }
 
 export function Settings({ tambola, apiKey, initOperator, onLogout }: Props) {
-  const mktKey    = apiKey ?? tambola?.mktApiKey ?? '';
-  const setMktKey = tambola?.setMktApiKey ?? (() => {});
-  const isPlanA   = !!apiKey;
+  const mktKey  = apiKey ?? tambola?.mktApiKey ?? '';
+  const isPlanA = !!apiKey;
 
-  const [inputKey,  setInputKey]  = useState(mktKey);
-  const [keyStatus, setKeyStatus] = useState<'idle'|'checking'|'ok'|'error'>(mktKey ? 'ok' : 'idle');
-  const [keyErr,    setKeyErr]    = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
   const [operator,  setOperator]  = useState<MktOperator | null>(initOperator ?? null);
+  const [opLoading, setOpLoading] = useState(false);
+  const [opErr,     setOpErr]     = useState('');
 
   const [pName,    setPName]    = useState('');
   const [pPhone,   setPPhone]   = useState('');
@@ -40,8 +39,8 @@ export function Settings({ tambola, apiKey, initOperator, onLogout }: Props) {
   const [zoomWorking,   setZoomWorking]     = useState(false);
   const [zoomErr,       setZoomErr]         = useState('');
 
-  const connected = keyStatus === 'ok' && !!mktKey;
   const activeOp  = operator ?? initOperator ?? null;
+  const connected = !!mktKey && !!activeOp;
 
   // Populate form from operator data (server-side truth, takes priority).
   // Depends on the object itself (not just .id) so a fresh fetch — e.g. the
@@ -54,15 +53,22 @@ export function Settings({ tambola, apiKey, initOperator, onLogout }: Props) {
     setZoomConnected(activeOp.zoomConnected ?? false);
   }, [activeOp]);
 
-  // Plan A: initOperator is just the snapshot cached at login/signup time and
-  // never otherwise refreshed, so it can show stale (e.g. blank) profile fields
-  // after a reload even when the real data is saved server-side. Refresh once
-  // on mount so this page always reflects server truth, same as GamesHome does.
+  // initOperator is only a snapshot cached at login/signup time, and Plan B
+  // isn't given one at all — so without this fetch `activeOp` stays null there,
+  // which silently turned off the marketplace half of saveProfile: the UPI id
+  // only ever reached the local settings row and never the account every other
+  // device (and every player) reads. Refresh on mount for both plans so this
+  // page reflects server truth.
   useEffect(() => {
-    if (!isPlanA || !mktKey) return;
-    mktGetInfo(mktKey).then(info => setOperator(info.operator)).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!mktKey) return;
+    let cancelled = false;
+    setOpLoading(true);
+    mktGetInfo(mktKey)
+      .then(info => { if (!cancelled) { setOperator(info.operator); setOpErr(''); } })
+      .catch(e => { if (!cancelled) setOpErr(e instanceof Error ? e.message : 'Could not reach the marketplace'); })
+      .finally(() => { if (!cancelled) setOpLoading(false); });
+    return () => { cancelled = true; };
+  }, [mktKey, reloadKey]);
 
   // Handle ?zoom=connected redirect back from Zoom OAuth
   useEffect(() => {
@@ -93,17 +99,8 @@ export function Settings({ tambola, apiKey, initOperator, onLogout }: Props) {
       .then(setQrDataUrl).catch(() => setQrDataUrl(''));
   }, [pUpiId, pName]);
 
-  async function connect() {
-    const k = inputKey.trim(); if (!k) return;
-    setKeyStatus('checking'); setKeyErr('');
-    try {
-      const info = await mktGetInfo(k);
-      setMktKey(k); setOperator(info.operator); setKeyStatus('ok');
-    } catch (e) { setKeyStatus('error'); setKeyErr(e instanceof Error ? e.message : 'Failed'); }
-  }
-
-  function disconnect() {
-    setMktKey(''); setInputKey(''); setKeyStatus('idle'); setOperator(null);
+  function retryConnection() {
+    setReloadKey(n => n + 1);
   }
 
   async function saveProfile() {
@@ -120,10 +117,11 @@ export function Settings({ tambola, apiKey, initOperator, onLogout }: Props) {
           upiId:        pUpiId.trim() || null,
         };
         await mktUpdateProfile(mktKey, profile);
-        // The top-level session cached in localStorage (from login/signup) doesn't
-        // otherwise get refreshed, so a reload would show blank/stale fields even
-        // though the save succeeded server-side. Keep it in sync for Plan A.
-        if (isPlanA) patchSessionOperator(profile);
+        // The session cached in localStorage (from login/signup) isn't otherwise
+        // refreshed, so a reload would show blank/stale fields even though the
+        // save succeeded server-side. Both plans read from it, so patch both.
+        patchSessionOperator(profile);
+        setOperator(prev => (prev ? { ...prev, ...profile } : prev));
       }
       if (canLocal) {
         await tambola!.setUpiSettings({
@@ -141,6 +139,9 @@ export function Settings({ tambola, apiKey, initOperator, onLogout }: Props) {
   }
 
   const canSave = isPlanA ? !!activeOp : true;
+  // Plan B can still save a local-only copy, but the operator should know the
+  // marketplace didn't get it rather than seeing a bare "Saved!".
+  const localOnly = !isPlanA && !!mktKey && !activeOp && !opLoading;
 
   async function connectZoom() {
     if (!mktKey) return;
@@ -219,6 +220,13 @@ export function Settings({ tambola, apiKey, initOperator, onLogout }: Props) {
           </div>
 
           {pErr && <p className="text-red-400 text-xs flex items-center gap-1"><XCircle className="w-3 h-3" /> {pErr}</p>}
+          {localOnly && (
+            <p className="text-amber-300/90 text-xs flex items-start gap-1.5">
+              <XCircle className="w-3 h-3 mt-0.5 shrink-0" />
+              Marketplace unreachable — saving here keeps a local copy only. Players and your other
+              devices won't see this UPI id until the connection above succeeds.
+            </p>
+          )}
 
           <button onClick={saveProfile} disabled={pSaving || !canSave}
             className={cn('w-full py-3 rounded-xl font-bold text-white text-sm flex items-center justify-center gap-2 transition-colors',
@@ -230,37 +238,41 @@ export function Settings({ tambola, apiKey, initOperator, onLogout }: Props) {
           )}
         </div>
 
-        {/* Marketplace connection — Plan B only */}
+        {/* Marketplace connection — Plan B only. The key is the one this device
+            signed in with, so there is nothing to paste; what matters is
+            whether the account is actually reachable right now. */}
         {!isPlanA && (
-          <div className="rounded-2xl p-5 space-y-4" style={{ backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="rounded-2xl p-5 space-y-3" style={{ backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
             <p className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-1.5">
-              <Globe className="w-3 h-3 text-violet-400" /> Marketplace API Key
+              <Globe className="w-3 h-3 text-violet-400" /> Marketplace
             </p>
 
-            {connected && operator ? (
+            {opLoading ? (
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
+                <Loader2 className="w-4 h-4 text-white/40 animate-spin shrink-0" />
+                <p className="text-white/50 text-sm">Checking your account…</p>
+              </div>
+            ) : activeOp ? (
               <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
                 <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-white text-sm truncate">{operator.name}</p>
-                  <p className="text-emerald-400 text-xs">Connected</p>
+                  <p className="font-semibold text-white text-sm truncate">{activeOp.name}</p>
+                  <p className="text-emerald-400 text-xs">Connected · games and profile sync to all your devices</p>
                 </div>
-                <button onClick={disconnect} className="text-xs text-red-400 hover:text-red-300 font-semibold flex items-center gap-1">
-                  <Unlink className="w-3 h-3" /> Disconnect
-                </button>
               </div>
             ) : (
               <>
-                <div className="flex flex-wrap gap-2">
-                  <input type="password" value={inputKey} onChange={e => setInputKey(e.target.value)} onKeyDown={e => e.key === 'Enter' && connect()}
-                    placeholder="Paste your API key…"
-                    className="flex-1 min-w-0 basis-48 rounded-xl px-3 py-2.5 text-sm font-mono bg-white/10 border border-white/15 text-white placeholder-white/25 focus:outline-none focus:border-violet-400" />
-                  <button onClick={connect} disabled={keyStatus === 'checking' || !inputKey.trim()}
-                    className="px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-40 flex items-center gap-1.5 shrink-0 transition-colors">
-                    {keyStatus === 'checking' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />} Connect
-                  </button>
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-red-500/10 border border-red-500/20">
+                  <XCircle className="w-4 h-4 text-red-400 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-white text-sm">Not reachable</p>
+                    <p className="text-red-300/80 text-xs break-words">{opErr || 'Your games and profile will not sync until this succeeds.'}</p>
+                  </div>
                 </div>
-                {keyStatus === 'error' && <p className="text-red-400 text-xs flex items-center gap-1"><XCircle className="w-3.5 h-3.5" /> {keyErr}</p>}
-                <p className="text-white/25 text-xs">Get your key from TungbolaMarket admin → Operators tab.</p>
+                <button onClick={retryConnection}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-violet-600 hover:bg-violet-500 flex items-center justify-center gap-1.5 transition-colors">
+                  <Link2 className="w-4 h-4" /> Retry
+                </button>
               </>
             )}
           </div>

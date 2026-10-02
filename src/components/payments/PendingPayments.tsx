@@ -20,6 +20,111 @@ const CARD: React.CSSProperties = {
   border: '1px solid rgba(0,0,0,0.07)',
 };
 
+function PaymentSettings({ tambola }: { tambola: ReturnType<typeof useTambola> }) {
+  const { sheetPrice, upiSettings, setSheetPrice, setUpiSettings } = tambola;
+
+  // The server row is the baseline; a draft only exists while the operator is
+  // mid-edit, so a realtime echo can never overwrite what they are typing and
+  // there is no effect syncing the two.
+  const server = {
+    sheetPrice: String(sheetPrice || ''),
+    upiId: upiSettings.upiId,
+    merchantName: upiSettings.merchantName,
+    whatsappNumber: upiSettings.whatsappNumber ?? '',
+  };
+  const [draft, setDraft] = useState<typeof server | null>(null);
+  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [err,    setErr]    = useState('');
+
+  const values = draft ?? server;
+
+  const edit = (patch: Partial<typeof server>) => {
+    setStatus('idle');
+    setDraft({ ...values, ...patch });
+  };
+
+  const commit = async () => {
+    if (!draft) return;
+    setStatus('saving'); setErr('');
+    try {
+      const price = parseInt(draft.sheetPrice.replace(/\D/g, ''), 10) || 0;
+      if (price !== sheetPrice) await setSheetPrice(price);
+      await setUpiSettings({
+        upiId: draft.upiId.trim(),
+        merchantName: draft.merchantName.trim(),
+        whatsappNumber: draft.whatsappNumber.trim() || undefined,
+      });
+      setDraft(null);           // fall back to the (now updated) server values
+      setStatus('saved');
+      setTimeout(() => setStatus(st => (st === 'saved' ? 'idle' : st)), 2500);
+    } catch (e) {
+      // Keep the draft so a failed save doesn't throw away what they typed.
+      setStatus('error');
+      setErr(e instanceof Error ? e.message : 'Could not save');
+    }
+  };
+
+  const field = 'w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400';
+
+  return (
+    <div className="sm:col-span-3 xl:col-span-2 rounded-xl p-4 flex flex-col xl:flex-row xl:items-end gap-3" style={CARD}>
+      <div className="flex items-center gap-2 mb-0.5 shrink-0">
+        <Wallet className="w-4 h-4" style={{ color: '#0ea5e9' }} />
+        <p className="text-xs font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap">Payment Settings</p>
+        {status === 'saving' && <span className="text-[11px] text-slate-400">Saving…</span>}
+        {status === 'saved'  && <span className="text-[11px] text-emerald-600 font-semibold">Saved</span>}
+        {draft && status === 'idle' && <span className="text-[11px] text-amber-600">Unsaved</span>}
+      </div>
+      <div className="grid grid-cols-2 xl:flex xl:gap-3 gap-3 flex-1 min-w-0">
+        <div className="xl:w-28 xl:shrink-0">
+          <label className="text-xs text-slate-400 block mb-1">Price / Sheet (₹)</label>
+          <input
+            type="text" inputMode="numeric" className={`${field} font-mono`}
+            value={values.sheetPrice}
+            onChange={e => edit({ sheetPrice: e.target.value.replace(/\D/g, '') })}
+            onBlur={commit}
+            placeholder="50"
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <label className="text-xs text-slate-400 block mb-1">UPI ID</label>
+          <input
+            className={`${field} font-mono`}
+            value={values.upiId}
+            onChange={e => edit({ upiId: e.target.value })}
+            onBlur={commit}
+            onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()}
+            placeholder="yourname@upi"
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <label className="text-xs text-slate-400 block mb-1">Display Name</label>
+          <input
+            className={field}
+            value={values.merchantName}
+            onChange={e => edit({ merchantName: e.target.value })}
+            onBlur={commit}
+            onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()}
+            placeholder="Your Name / Business"
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <label className="text-xs text-slate-400 mb-1 flex items-center gap-1"><MessageCircle className="w-3 h-3 text-green-500" /> WhatsApp Number</label>
+          <input
+            className={`${field} font-mono focus:ring-green-400`}
+            value={values.whatsappNumber}
+            onChange={e => edit({ whatsappNumber: e.target.value.replace(/\D/g, '') })}
+            onBlur={commit}
+            onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()}
+            placeholder="91XXXXXXXXXX"
+          />
+        </div>
+      </div>
+      {status === 'error' && <p className="text-xs text-red-500 xl:w-full">{err}</p>}
+    </div>
+  );
+}
+
 function OrderCard({ order, tambola, onConfirm, onReject }: {
   order: Order;
   tambola: ReturnType<typeof useTambola>;
@@ -188,52 +293,7 @@ export function PendingPayments({ tambola }: PendingPaymentsProps) {
           </div>
         </div>
 
-        {/* UPI settings — spans the remaining 2 cols on wide screens */}
-        <div className="sm:col-span-3 xl:col-span-2 rounded-xl p-4 flex flex-col xl:flex-row xl:items-end gap-3" style={CARD}>
-          <div className="flex items-center gap-2 mb-0.5 shrink-0">
-            <Wallet className="w-4 h-4" style={{ color: '#0ea5e9' }} />
-            <p className="text-xs font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap">Payment Settings</p>
-          </div>
-          <div className="grid grid-cols-2 xl:flex xl:gap-3 gap-3 flex-1 min-w-0">
-            <div className="xl:w-28 xl:shrink-0">
-              <label className="text-xs text-slate-400 block mb-1">Price / Sheet (₹)</label>
-              <input
-                type="text" inputMode="numeric"
-                className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-amber-400"
-                value={tambola.sheetPrice || ''}
-                onChange={e => tambola.setSheetPrice(parseInt(e.target.value.replace(/\D/g, '')) || 0)}
-                placeholder="50"
-              />
-            </div>
-            <div className="flex-1 min-w-0">
-              <label className="text-xs text-slate-400 block mb-1">UPI ID</label>
-              <input
-                className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-amber-400"
-                value={tambola.upiSettings.upiId}
-                onChange={e => tambola.setUpiSettings({ ...tambola.upiSettings, upiId: e.target.value })}
-                placeholder="yourname@upi"
-              />
-            </div>
-            <div className="flex-1 min-w-0">
-              <label className="text-xs text-slate-400 block mb-1">Display Name</label>
-              <input
-                className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-                value={tambola.upiSettings.merchantName}
-                onChange={e => tambola.setUpiSettings({ ...tambola.upiSettings, merchantName: e.target.value })}
-                placeholder="Your Name / Business"
-              />
-            </div>
-            <div className="flex-1 min-w-0">
-              <label className="text-xs text-slate-400 block mb-1 flex items-center gap-1"><MessageCircle className="w-3 h-3 text-green-500" /> WhatsApp Number</label>
-              <input
-                className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-400"
-                value={tambola.upiSettings.whatsappNumber ?? ''}
-                onChange={e => tambola.setUpiSettings({ ...tambola.upiSettings, whatsappNumber: e.target.value.replace(/\D/g, '') })}
-                placeholder="91XXXXXXXXXX"
-              />
-            </div>
-          </div>
-        </div>
+        <PaymentSettings tambola={tambola} />
       </div>
 
       {/* ── Orders list ── */}

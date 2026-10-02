@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getSession } from '@/lib/session';
 import { useLocalStorage } from './useLocalStorage';
 import { generateSheet, verifyDividend } from '@/lib/tambola';
 import {
@@ -101,6 +102,12 @@ function dbToScheduledGame(row: Record<string, unknown>): ScheduledGame {
     estimatedPrizePool: (row.estimated_prize_pool as number) ?? 0,
     backgroundImage: (row.background_image as string) ?? undefined,
     sessionId: (row.session_id as string) ?? undefined,
+    // Without these the marketplace listing is only known to the tab that
+    // created it: every other device reloads the game as "not connected",
+    // can't list it, and broadcasts live calls to an ad-hoc namespace.
+    mktGameId: (row.mkt_game_id as string) ?? undefined,
+    joinLink: (row.join_link as string) ?? undefined,
+    joinDetails: (row.join_details as string) ?? undefined,
   };
 }
 
@@ -118,6 +125,9 @@ function dbToGameSession(row: Record<string, unknown>): GameSession {
     totalPrizePool: (row.total_prize_pool as number) ?? 0,
     startTime: (row.created_at as string) ?? undefined,
     endTime: (row.ended_at as string) ?? undefined,
+    mktGameId: (row.mkt_game_id as string) ?? undefined,
+    joinLink: (row.join_link as string) ?? undefined,
+    joinDetails: (row.join_details as string) ?? undefined,
   };
 }
 
@@ -132,6 +142,55 @@ function dbToGameHistory(row: Record<string, unknown>): GameHistory {
     calledNumbersCount: (row.called_numbers_count as number) ?? 0,
     totalPlayers: ((row.winners as Winner[]) ?? []).length,
   };
+}
+
+// ─── Marketplace-link columns ─────────────────────────────────────────────────
+// scheduled_games and game_sessions carry mkt_game_id / join_link /
+// join_details so the link to a marketplace listing survives a reload and
+// reaches the operator's other devices. A database that predates them answers
+// PGRST204; rather than failing the whole write, drop those fields and retry,
+// so scheduling still works while the operator runs the migration.
+
+const MKT_LINK_COLUMNS = ['mkt_game_id', 'join_link', 'join_details'] as const;
+
+type DbError = { code?: string; message?: string } | null;
+type DbRow = Record<string, unknown>;
+
+function isMissingColumn(error: DbError): boolean {
+  if (!error) return false;
+  return error.code === 'PGRST204' || /column .* does not exist/i.test(error.message ?? '');
+}
+
+function warnMissingColumns(table: string) {
+  console.warn(
+    `[${table}] no ${MKT_LINK_COLUMNS.join('/')} column — the marketplace link ` +
+    'will not follow this game to your other devices. Run ' +
+    'supabase/migrations/0001_marketplace_link.sql against your project.',
+  );
+}
+
+function withoutMktLink(row: DbRow): DbRow {
+  const trimmed = { ...row };
+  for (const column of MKT_LINK_COLUMNS) delete trimmed[column];
+  return trimmed;
+}
+
+async function insertRow(table: string, row: DbRow): Promise<DbError> {
+  const { error } = await supabase.from(table).insert(row);
+  if (!isMissingColumn(error)) return error;
+  warnMissingColumns(table);
+  const { error: retry } = await supabase.from(table).insert(withoutMktLink(row));
+  return retry;
+}
+
+async function updateRow(table: string, patch: DbRow, id: string): Promise<DbError> {
+  const { error } = await supabase.from(table).update(patch).eq('id', id);
+  if (!isMissingColumn(error)) return error;
+  warnMissingColumns(table);
+  const trimmed = withoutMktLink(patch);
+  if (Object.keys(trimmed).length === 0) return null;
+  const { error: retry } = await supabase.from(table).update(trimmed).eq('id', id);
+  return retry;
 }
 
 // ─── TypeScript → DB mappers ──────────────────────────────────────────────────
@@ -163,7 +222,13 @@ export function useTambola() {
   const [scheduledGames, setScheduledGames]   = useState<ScheduledGame[]>([]);
   const [loading,        setLoading]          = useState(true);
   const [currentPage, setCurrentPage] = useLocalStorage<AppPage>('tukpa-page', 'dashboard');
-  const [mktApiKey, setMktApiKey] = useLocalStorage<string>('tukpa-mkt-api-key', '');
+  // The signed-in session already holds this operator's API key. Keeping a
+  // second copy under its own key means a device that signed up (rather than
+  // logged in), or whose copy was cleared, silently acts as if no marketplace
+  // is connected — My Games comes up empty and games can't be published. Fall
+  // back to the session so every signed-in device agrees.
+  const [storedApiKey, setMktApiKey] = useLocalStorage<string>('tukpa-mkt-api-key', '');
+  const mktApiKey = storedApiKey || getSession()?.apiKey || '';
 
   // Keep latest sheets in a ref for callbacks that close over stale state
   const sheetsRef = useRef<Sheet[]>([]);
@@ -281,14 +346,20 @@ export function useTambola() {
 
   // ─── Settings ───────────────────────────────────────────────────────────────
 
+  // Both of these used to ignore the upsert result, so a rejected write (RLS,
+  // offline, a missing row) left the UI showing the new value while the
+  // database kept the old one — the save looked fine until the next reload.
+  // Throw instead, and let the caller say so.
   const setSheetPrice = useCallback(async (price: number) => {
     setSheetPriceState(price);
-    await supabase.from('settings').upsert({ key: 'sheet_price', value: price });
+    const { error } = await supabase.from('settings').upsert({ key: 'sheet_price', value: price });
+    if (error) throw new Error(error.message || 'Could not save the sheet price');
   }, []);
 
   const setUpiSettings = useCallback(async (s: UpiSettings) => {
     setUpiSettingsState(s);
-    await supabase.from('settings').upsert({ key: 'upi_settings', value: s });
+    const { error } = await supabase.from('settings').upsert({ key: 'upi_settings', value: s });
+    if (error) throw new Error(error.message || 'Could not save payment settings');
   }, []);
 
   // ─── Sheet generation ───────────────────────────────────────────────────────
@@ -504,10 +575,14 @@ export function useTambola() {
       mktGameId, joinLink, joinDetails,
     };
     setCurrentGameState(game);
-    await supabase.from('game_sessions').insert({
+    const error = await insertRow('game_sessions', {
       id: game.id, name, sheet_ids: sheetIds, dividends,
       called_numbers: [], status: 'setup', total_prize_pool: game.totalPrizePool,
+      mkt_game_id: mktGameId ?? null,
+      join_link: joinLink ?? null,
+      join_details: joinDetails ?? null,
     });
+    if (error) console.error('[createGame] Supabase error:', error);
     return game;
   }, [sheetPrice]);
 
@@ -581,13 +656,15 @@ export function useTambola() {
     let game: ScheduledGame = { ...input, id: `SCHED-${Date.now()}`, estimatedPrizePool };
     setScheduledGames(prev => [...prev, game]);
     setSheets(prev => prev.map(s => input.sheetIds.includes(s.id) ? { ...s, scheduledGameId: game.id } : s));
-    const { error } = await supabase.from('scheduled_games').insert({
+    const error = await insertRow('scheduled_games', {
       id: game.id, name: game.name, scheduled_at: game.scheduledAt,
       ticket_price: game.ticketPrice, sheet_ids: game.sheetIds,
       prizes: game.prizes, has_jackpot: game.hasJackpot, jackpot_amount: game.jackpotAmount,
       jackpot_thing_name: game.jackpotThingName ?? null,
       jackpot_thing_photo: game.jackpotThingPhoto ?? null,
       estimated_prize_pool: estimatedPrizePool, background_image: game.backgroundImage ?? null,
+      join_link: game.joinLink ?? null,
+      join_details: game.joinDetails ?? null,
     });
     if (error) console.error('[scheduleGame] Supabase error:', error);
     if (input.sheetIds.length > 0) {
@@ -624,6 +701,10 @@ export function useTambola() {
         });
         game = { ...game, mktGameId: mktGame.id };
         setScheduledGames(prev => prev.map(g => g.id === game.id ? game : g));
+        // Store the link, or it lives only in this tab: a reload or any other
+        // device would see an unlisted game it can't publish.
+        const linkError = await updateRow('scheduled_games', { mkt_game_id: mktGame.id }, game.id);
+        if (linkError) console.error('[scheduleGame] could not store marketplace game id:', linkError);
       } catch (e) {
         console.error('[scheduleGame] marketplace create-game failed (local schedule still saved):', e);
       }
@@ -638,7 +719,13 @@ export function useTambola() {
   // of only finding out when the operator starts calling numbers.
   const listScheduledGame = useCallback(async (id: string) => {
     const game = scheduledGames.find(g => g.id === id);
-    if (!game?.mktGameId || !mktApiKey) throw new Error('Connect your marketplace API key in Profile first.');
+    if (!mktApiKey) throw new Error('Sign in again — this device has no marketplace connection.');
+    if (!game?.mktGameId) {
+      throw new Error(
+        'This game has no marketplace listing yet. It was scheduled while the ' +
+        'marketplace was unreachable — reschedule it to create one.',
+      );
+    }
     await mktSetStatus(mktApiKey, game.mktGameId, 'listed');
   }, [scheduledGames, mktApiKey]);
 

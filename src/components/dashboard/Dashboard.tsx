@@ -125,7 +125,13 @@ export function Dashboard({ tambola }: DashboardProps) {
     if (focusedGame.hasJackpot) {
       dividends.push({ id: `DIV-${Date.now()}-jp`, type: 'full-house', name: 'Jackpot', prize: focusedGame.jackpotAmount, claimed: false });
     }
-    const game = await createGame(focusedGame.name, focusedGame.sheetIds, dividends);
+    // Carry the marketplace link through, or this session broadcasts its calls
+    // and claims to an ad-hoc namespace instead of the real listing — the Live
+    // Game page's own launch button already does this.
+    const game = await createGame(
+      focusedGame.name, focusedGame.sheetIds, dividends,
+      focusedGame.mktGameId, focusedGame.joinLink, focusedGame.joinDetails,
+    );
     linkScheduledGame(focusedGame.id, game.id);
     setCurrentPage('live-game');
   };

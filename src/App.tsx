@@ -153,6 +153,10 @@ function Login({ onSuccess }: { onSuccess: (s: OpSession) => void }) {
       const info   = await mktGetInfo(apiKey);
       const s: OpSession = { apiKey, operator: info.operator };
       localStorage.setItem(SESSION_KEY, JSON.stringify(s));
+      // Login does this too. Without it a Plan B operator who signed up here
+      // ran with no marketplace key on this device: My Games came up empty and
+      // scheduled games never got a listing to publish.
+      if (info.operator.plan === 'generate') localStorage.setItem('tukpa-mkt-api-key', apiKey);
       onSuccess(s);
     } catch (e) {
       doShake(e instanceof Error ? e.message : 'Signup failed');
