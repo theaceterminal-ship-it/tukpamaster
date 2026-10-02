@@ -56,15 +56,15 @@ export function PlayerRegistry({ tambola }: PlayerRegistryProps) {
     <div className="space-y-5 w-full">
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <UserCircle className="w-6 h-6" style={{ color: '#0ea5e9' }} />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center gap-2">
+            <UserCircle className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" style={{ color: '#0ea5e9' }} />
             Player Registry
           </h2>
-          <p className="text-slate-500 mt-1">Register players, assign tickets, and track participation.</p>
+          <p className="text-slate-500 text-sm sm:text-base mt-1">Register players, assign tickets, and track participation.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Dialog open={isAssignOpen} onOpenChange={setIsAssignOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" className="gap-2"><Ticket className="w-4 h-4" /> Assign Ticket</Button>
@@ -125,25 +125,25 @@ export function PlayerRegistry({ tambola }: PlayerRegistryProps) {
         </div>
       </div>
 
-      {/* ── Main: 2-column layout ── */}
-      <div className="grid grid-cols-4 gap-4 w-full items-start">
+      {/* ── Main: side panel + list on desktop, stacked on phones ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 w-full items-start">
 
         {/* ── Left sidebar: stats + search ── */}
         <div className="space-y-4">
 
           {/* Stats */}
-          <div className="rounded-2xl p-5 space-y-3" style={CARD}>
-            <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Overview</p>
+          <div className="rounded-2xl p-5 grid grid-cols-3 gap-3 lg:block lg:space-y-3" style={CARD}>
+            <p className="col-span-3 text-xs font-bold uppercase tracking-widest text-gray-400">Overview</p>
             {[
               { label: 'Total Players', value: tambola.players.length,          icon: Users,     color: 'text-slate-800' },
               { label: 'Total Tickets', value: totalTickets,                    icon: Ticket,    color: 'text-blue-600' },
               { label: 'Total Winnings', value: `₹${totalWinnings.toLocaleString()}`, icon: TrendingUp, color: 'text-emerald-600', str: true },
             ].map(s => (
-              <div key={s.label} className="flex items-center gap-3">
+              <div key={s.label} className="flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-3">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(232,98,42,0.1)' }}>
                   <s.icon className="w-3.5 h-3.5" style={{ color: '#0ea5e9' }} />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className={`text-lg font-black tabular-nums ${s.color}`}>
                     {s.str ? s.value : (s.value as number).toLocaleString()}
                   </p>
@@ -172,7 +172,7 @@ export function PlayerRegistry({ tambola }: PlayerRegistryProps) {
         </div>
 
         {/* ── Right: players list (3 cols wide) ── */}
-        <div className="col-span-3 rounded-2xl p-5" style={CARD}>
+        <div className="lg:col-span-3 rounded-2xl p-4 sm:p-5" style={CARD}>
           <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">
             All Players ({filteredPlayers.length})
           </p>
@@ -187,22 +187,22 @@ export function PlayerRegistry({ tambola }: PlayerRegistryProps) {
           ) : (
             <div className="space-y-2">
               {filteredPlayers.map(player => (
-                <div key={player.id} className="flex items-center justify-between p-3.5 border border-slate-100 rounded-xl hover:bg-slate-50 transition-colors">
-                  <div className="flex items-center gap-3">
+                <div key={player.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 p-3 sm:p-3.5 border border-slate-100 rounded-xl hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
                     <div className="w-9 h-9 bg-emerald-100 rounded-full flex items-center justify-center shrink-0">
                       <span className="text-xs font-bold text-emerald-600">
                         {player.name.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase()}
                       </span>
                     </div>
-                    <div>
-                      <p className="font-semibold text-slate-800 text-sm">{player.name}</p>
-                      <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-800 text-sm truncate">{player.name}</p>
+                      <div className="flex items-center flex-wrap gap-x-3 text-xs text-slate-400 mt-0.5">
                         <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{player.phone}</span>
                         <span className="flex items-center gap-1"><Ticket className="w-3 h-3" />{player.ticketIds.length} tickets</span>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-6 text-right shrink-0">
+                  <div className="flex items-center gap-6 text-right shrink-0 ml-auto">
                     <div>
                       <p className="text-sm font-black text-slate-800 tabular-nums">{player.totalGames}</p>
                       <p className="text-xs text-slate-400">Games</p>

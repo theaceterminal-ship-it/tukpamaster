@@ -256,19 +256,19 @@ export function AgentNetwork({ tambola }: AgentNetworkProps) {
     <div className="space-y-5 w-full">
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <Users className="w-6 h-6" style={{ color: '#0ea5e9' }} />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center gap-2">
+            <Users className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" style={{ color: '#0ea5e9' }} />
             Agent Network
           </h2>
-          <p className="text-slate-500 mt-1">Manage agents, assign sheet ranges, track sales.</p>
+          <p className="text-slate-500 text-sm sm:text-base mt-1">Manage agents, assign sheet ranges, track sales.</p>
         </div>
         <AddAgentDialog onAdd={(name, phone, commission, whatsapp, gmail, password) => tambola.addAgent(name, phone, commission, whatsapp, gmail, password)} />
       </div>
 
       {/* ── Summary stats ── */}
-      <div className="grid grid-cols-3 gap-4 w-full">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 w-full">
         {[
           { label: 'Total Agents',   value: tambola.agents.length,                                                    icon: Users },
           { label: 'Assigned',       value: activeSheets.filter(s => s.status === 'assigned').length,                  icon: Package },
@@ -293,23 +293,23 @@ export function AgentNetwork({ tambola }: AgentNetworkProps) {
           <p className="text-slate-500">No agents yet. Add your first agent above.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4 w-full">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 w-full">
           {tambola.agents.map(agent => {
             const stats = agentStats(agent);
             const agentUrl = `${window.location.origin}/agent`;
             return (
-              <div key={agent.id} className="rounded-2xl p-5" style={CARD}>
+              <div key={agent.id} className="rounded-2xl p-4 sm:p-5" style={CARD}>
                 {/* Top row */}
-                <div className="flex items-start justify-between gap-4 mb-4">
-                  <div className="flex items-center gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-4">
+                  <div className="flex items-center gap-3 min-w-0">
                     <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
                       <span className="text-sm font-bold text-blue-600">
                         {agent.name.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase()}
                       </span>
                     </div>
-                    <div>
-                      <p className="font-semibold text-slate-800">{agent.name}</p>
-                      <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-800 truncate">{agent.name}</p>
+                      <div className="flex items-center flex-wrap gap-x-3 text-xs text-slate-500 mt-0.5">
                         <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{agent.phone}</span>
                         <span>{agent.commission}% commission</span>
                       </div>
@@ -317,7 +317,7 @@ export function AgentNetwork({ tambola }: AgentNetworkProps) {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex items-center flex-wrap gap-1.5 shrink-0">
                     <AssignSheetsDialog agent={agent} maxSheet={maxSheet} onAssign={tambola.assignSheetsByRange} />
                     <Button size="sm" variant="outline" onClick={() => downloadAgentSheets(agent)} disabled={stats.total === 0} className="gap-1 h-8 text-xs">
                       <Download className="w-3 h-3" /> PDF ({stats.total})
@@ -332,7 +332,7 @@ export function AgentNetwork({ tambola }: AgentNetworkProps) {
                 </div>
 
                 {/* Stats bar */}
-                <div className="grid grid-cols-4 gap-2 text-center">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
                   {[
                     { label: 'Assigned',  value: stats.total,              color: 'text-slate-700' },
                     { label: 'Available', value: stats.available,          color: 'text-blue-600' },
@@ -351,7 +351,7 @@ export function AgentNetwork({ tambola }: AgentNetworkProps) {
                   <div className="mt-3 space-y-1.5 border-t border-slate-100 pt-3">
                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Per Game</p>
                     {Object.entries(stats.byGame).filter(([gid]) => gid !== '__none__').map(([gid, g]) => (
-                      <div key={gid} className="flex items-center gap-2 text-xs bg-slate-50 rounded-lg px-3 py-1.5">
+                      <div key={gid} className="flex items-center flex-wrap gap-x-2 gap-y-0.5 text-xs bg-slate-50 rounded-lg px-3 py-1.5">
                         <span className="flex-1 font-medium text-slate-700 truncate">{g.name}</span>
                         <span className="text-emerald-600 font-semibold">{g.sold} sold</span>
                         <span className="text-blue-500">{g.remaining} left</span>

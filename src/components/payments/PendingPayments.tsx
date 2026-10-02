@@ -54,10 +54,10 @@ function OrderCard({ order, tambola, onConfirm, onReject }: {
   return (
     <div className="border border-slate-100 rounded-xl overflow-hidden">
       <div
-        className="flex items-center gap-3 p-3.5 bg-white cursor-pointer hover:bg-slate-50 transition-colors"
+        className="flex flex-wrap items-center gap-x-3 gap-y-2 p-3 sm:p-3.5 bg-white cursor-pointer hover:bg-slate-50 transition-colors"
         onClick={() => setExpanded(e => !e)}
       >
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-[55%]">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-slate-800 text-sm">{order.playerName}</span>
             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusStyles[order.status]}`}>
@@ -65,14 +65,14 @@ function OrderCard({ order, tambola, onConfirm, onReject }: {
             </span>
             <span className="font-mono text-xs text-slate-400">{order.id}</span>
           </div>
-          <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-400">
+          <div className="flex items-center flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-xs text-slate-400">
             {order.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{order.phone}</span>}
             <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{timeAgo(order.createdAt)}</span>
             <span>{order.sheetIds.length} sheets · <strong className="text-slate-600">₹{order.amount}</strong></span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 ml-auto">
           {order.status === 'pending' && onConfirm && onReject && (
             <>
               <Button size="sm" onClick={e => { e.stopPropagation(); onConfirm(); }} className="h-8 text-xs bg-emerald-500 hover:bg-emerald-600 text-white gap-1">
@@ -94,7 +94,7 @@ function OrderCard({ order, tambola, onConfirm, onReject }: {
 
       {expanded && (
         <div className="px-4 pb-4 pt-2.5 border-t border-slate-100 bg-slate-50 space-y-2">
-          <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
             <div className="flex justify-between">
               <span className="text-slate-400">UTR / Transaction ID</span>
               <span className="font-mono text-slate-700">{order.utr || '—'}</span>
@@ -147,15 +147,15 @@ export function PendingPayments({ tambola }: PendingPaymentsProps) {
 
       {/* ── Header ── */}
       <div>
-        <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-          <ClipboardList className="w-6 h-6" style={{ color: '#0ea5e9' }} />
+        <h2 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <ClipboardList className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" style={{ color: '#0ea5e9' }} />
           Pending Payments
         </h2>
-        <p className="text-slate-500 mt-1">Review player orders and confirm or reject UPI payments.</p>
+        <p className="text-slate-500 text-sm sm:text-base mt-1">Review player orders and confirm or reject UPI payments.</p>
       </div>
 
-      {/* ── Stats + UPI settings in one row ── */}
-      <div className="grid grid-cols-5 gap-4 w-full">
+      {/* ── Stats + UPI settings: one row on desktop, stacked on phones ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 w-full">
 
         {/* 3 stat boxes */}
         <div className="rounded-xl p-4 flex items-center gap-3 cursor-pointer" style={CARD} onClick={() => setTab('pending')}>
@@ -188,14 +188,14 @@ export function PendingPayments({ tambola }: PendingPaymentsProps) {
           </div>
         </div>
 
-        {/* UPI settings — spans remaining 2 cols */}
-        <div className="col-span-2 rounded-xl p-4 flex items-end gap-3" style={CARD}>
+        {/* UPI settings — spans the remaining 2 cols on wide screens */}
+        <div className="sm:col-span-3 xl:col-span-2 rounded-xl p-4 flex flex-col xl:flex-row xl:items-end gap-3" style={CARD}>
           <div className="flex items-center gap-2 mb-0.5 shrink-0">
             <Wallet className="w-4 h-4" style={{ color: '#0ea5e9' }} />
             <p className="text-xs font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap">Payment Settings</p>
           </div>
-          <div className="flex gap-3 flex-1 min-w-0">
-            <div className="w-28 shrink-0">
+          <div className="grid grid-cols-2 xl:flex xl:gap-3 gap-3 flex-1 min-w-0">
+            <div className="xl:w-28 xl:shrink-0">
               <label className="text-xs text-slate-400 block mb-1">Price / Sheet (₹)</label>
               <input
                 type="text" inputMode="numeric"
@@ -239,12 +239,12 @@ export function PendingPayments({ tambola }: PendingPaymentsProps) {
       {/* ── Orders list ── */}
       <div className="rounded-2xl overflow-hidden w-full" style={CARD}>
         {/* Tabs */}
-        <div className="flex border-b border-slate-100 px-5 pt-1">
+        <div className="flex border-b border-slate-100 px-3 sm:px-5 pt-1 overflow-x-auto scrollbar-hide">
           {(['pending', 'confirmed', 'rejected'] as Tab[]).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`pb-3 px-4 text-sm font-medium border-b-2 -mb-px transition-colors capitalize ${
+              className={`pb-3 px-3 sm:px-4 text-sm font-medium border-b-2 -mb-px transition-colors capitalize whitespace-nowrap ${
                 tab === t ? 'border-amber-500 text-amber-600' : 'border-transparent text-slate-400 hover:text-slate-700'
               }`}
             >
@@ -254,7 +254,7 @@ export function PendingPayments({ tambola }: PendingPaymentsProps) {
           ))}
         </div>
 
-        <div className="p-5">
+        <div className="p-3 sm:p-5">
           {displayed.length === 0 ? (
             <div className="text-center py-12">
               <Package className="w-10 h-10 text-slate-300 mx-auto mb-2" />

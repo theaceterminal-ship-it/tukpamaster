@@ -224,11 +224,11 @@ function InlineVerifier({ tambola }: { tambola: ReturnType<typeof useTambola> })
                   d.claimed ? 'bg-emerald-50 border border-emerald-200' : 'bg-slate-50 border border-slate-200',
                 )}
               >
-                <span className={d.claimed ? 'text-emerald-700 line-through' : 'text-slate-600'}>
+                <span className={cn('truncate', d.claimed ? 'text-emerald-700 line-through' : 'text-slate-600')}>
                   {d.name}
                 </span>
                 {d.claimed
-                  ? <span className="text-emerald-600 font-medium truncate max-w-[80px]" title={d.winner}>{d.winner}</span>
+                  ? <span className="text-emerald-600 font-medium truncate max-w-[80px] shrink-0 ml-1.5" title={d.winner}>{d.winner}</span>
                   : <span className="text-slate-400">₹{d.prize}</span>
                 }
               </div>
@@ -411,7 +411,7 @@ function GameInventory({ game, tambola }: { game: ScheduledGame; tambola: Return
     .reduce((sum, s) => sum + (s.price ?? tambola.sheetPrice), 0);
 
   return (
-    <div className="grid grid-cols-4 gap-2 mt-2 px-3 pb-3">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2 px-3 pb-3">
       {[
         { label: 'Total',     value: gameSheets.length, icon: Package,   color: 'text-slate-700' },
         { label: 'Sold',      value: sold,              icon: TrendingUp, color: 'text-emerald-600' },
@@ -423,7 +423,7 @@ function GameInventory({ game, tambola }: { game: ScheduledGame; tambola: Return
           <p className="text-[10px] text-slate-400">{s.label}</p>
         </div>
       ))}
-      <div className="col-span-4 bg-emerald-50 rounded-lg px-3 py-1.5 flex items-center justify-between">
+      <div className="col-span-2 sm:col-span-4 bg-emerald-50 rounded-lg px-3 py-1.5 flex items-center justify-between">
         <span className="text-xs text-emerald-700 font-medium flex items-center gap-1">
           <Banknote className="w-3 h-3" /> Collection
         </span>
@@ -525,14 +525,14 @@ export function LiveGame({ tambola }: LiveGameProps) {
   if (showSetup || !currentGame) {
     return (
       <div className="max-w-2xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-              <Radio className="w-6 h-6 text-red-500" /> Live Game Studio
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center gap-2">
+              <Radio className="w-5 h-5 sm:w-6 sm:h-6 text-red-500 shrink-0" /> Live Game Studio
             </h2>
-            <p className="text-slate-500 mt-1">Launch or schedule your Tukpa game.</p>
+            <p className="text-slate-500 text-sm sm:text-base mt-1">Launch or schedule your Tukpa game.</p>
           </div>
-          <Button onClick={() => setSchedDialogOpen(true)} className="gap-2 font-bold text-white" style={{ backgroundColor: '#0ea5e9' }}>
+          <Button onClick={() => setSchedDialogOpen(true)} className="gap-2 font-bold text-white shrink-0" style={{ backgroundColor: '#0ea5e9' }}>
             <Calendar className="w-4 h-4" /> Schedule New Game
           </Button>
         </div>
@@ -552,11 +552,11 @@ export function LiveGame({ tambola }: LiveGameProps) {
                 .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
                 .map(g => (
                   <div key={g.id} className="border border-slate-200 rounded-xl bg-slate-50 overflow-hidden">
-                    <div className="flex items-center gap-3 py-2.5 px-3">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 py-2.5 px-3">
                       {g.backgroundImage && (
                         <img src={g.backgroundImage} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0 border border-slate-200" />
                       )}
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-[55%]">
                         <p className="text-sm font-semibold text-slate-800 truncate">{g.name}</p>
                         <p className="text-xs text-slate-500 mt-0.5">
                           {new Date(g.scheduledAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
@@ -571,7 +571,7 @@ export function LiveGame({ tambola }: LiveGameProps) {
                           {g.hasJackpot && <span className="text-xs bg-yellow-100 border border-yellow-300 text-yellow-700 px-1.5 py-0.5 rounded-full">⭐ Jackpot</span>}
                         </div>
                       </div>
-                      <Button size="sm" onClick={() => handleLaunchScheduled(g)} className="bg-red-500 hover:bg-red-600 text-white gap-1.5 text-xs shrink-0">
+                      <Button size="sm" onClick={() => handleLaunchScheduled(g)} className="bg-red-500 hover:bg-red-600 text-white gap-1.5 text-xs shrink-0 ml-auto">
                         <Play className="w-3 h-3" /> Start Live Now
                       </Button>
                     </div>
@@ -581,7 +581,7 @@ export function LiveGame({ tambola }: LiveGameProps) {
 
                     {/* Reschedule / Delete */}
                     {rescheduleId === g.id ? (
-                      <div className="flex items-center gap-2 px-3 pb-3">
+                      <div className="flex flex-wrap items-center gap-2 px-3 pb-3">
                         <input
                           type="datetime-local"
                           value={rescheduleAt}
@@ -645,9 +645,9 @@ export function LiveGame({ tambola }: LiveGameProps) {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <h2 className="text-xl font-bold text-slate-800">{currentGame.name}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="flex items-center flex-wrap gap-x-3 gap-y-1.5 min-w-0">
+          <h2 className="text-lg sm:text-xl font-bold text-slate-800 truncate max-w-full">{currentGame.name}</h2>
           <Badge variant={isActive ? 'destructive' : 'secondary'} className="gap-1">
             {isActive && <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />}
             {currentGame.status.toUpperCase()}
@@ -658,7 +658,7 @@ export function LiveGame({ tambola }: LiveGameProps) {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 ml-auto shrink-0">
           <Button variant="outline" size="sm" onClick={() => setSoundEnabled(v => !v)}>
             {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           </Button>
@@ -695,7 +695,7 @@ export function LiveGame({ tambola }: LiveGameProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-10 gap-1.5">
+            <div className="grid grid-cols-10 gap-1 sm:gap-1.5">
               {Array.from({ length: 90 }, (_, i) => i + 1).map(num => {
                 const isCalled = calledSet.has(num);
                 const isLast   = lastCalled === num;

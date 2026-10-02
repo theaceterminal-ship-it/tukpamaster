@@ -153,16 +153,16 @@ const STATUS_PILL: Record<string, string> = {
 function SheetRow({ sheet, agent, buyers, isSelected, onToggle, onDelete, onExport, onPreview }: SheetRowProps) {
   const label = sheet.status.charAt(0).toUpperCase() + sheet.status.slice(1);
   return (
-    <div className={`flex items-center gap-3 py-2 px-1 rounded transition-colors ${isSelected ? 'bg-amber-50' : 'hover:bg-slate-50'}`}>
-      <input type="checkbox" className="w-3.5 h-3.5 accent-amber-500 shrink-0" checked={isSelected} onChange={onToggle} />
-      <span className="font-mono text-sm text-slate-700 w-24 shrink-0">{sheet.id}</span>
+    <div className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2 px-1 rounded transition-colors ${isSelected ? 'bg-amber-50' : 'hover:bg-slate-50'}`}>
+      <input type="checkbox" className="w-4 h-4 accent-amber-500 shrink-0" checked={isSelected} onChange={onToggle} />
+      <span className="font-mono text-sm text-slate-700 sm:w-24 shrink-0">{sheet.id}</span>
       <Popover>
         <PopoverTrigger asChild>
           <button className={`shrink-0 text-xs font-semibold px-2.5 py-0.5 rounded-full cursor-pointer transition-colors ${STATUS_PILL[sheet.status]}`}>
             {label}
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-52 p-3" side="right">
+        <PopoverContent className="w-52 p-3" side="bottom" align="start" collisionPadding={12}>
           {sheet.status === 'available' && <p className="text-slate-500 text-xs">Not yet assigned to any agent.</p>}
           {sheet.status === 'assigned' && (
             agent ? (
@@ -188,11 +188,11 @@ function SheetRow({ sheet, agent, buyers, isSelected, onToggle, onDelete, onExpo
           )}
         </PopoverContent>
       </Popover>
-      <span className="flex-1 text-sm text-slate-500 truncate">
+      <span className="flex-1 min-w-0 text-sm text-slate-500 truncate">
         {sheet.status === 'assigned' && agent?.name}
         {sheet.status === 'sold' && buyers.map(b => b.name).join(', ')}
       </span>
-      <div className="flex gap-1 shrink-0">
+      <div className="flex gap-1 shrink-0 ml-auto">
         <Button size="sm" variant="ghost" onClick={onPreview} className="h-7 w-7 p-0 text-slate-400 hover:text-blue-500 hover:bg-blue-50">
           <Eye className="w-3.5 h-3.5" />
         </Button>
@@ -391,11 +391,11 @@ export function SheetFactory({ tambola }: SheetFactoryProps) {
       </Dialog>
 
       {/* Page heading */}
-      <div>
-        <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-          <Grid3x3 className="w-6 h-6" style={{ color: '#0ea5e9' }} /> Sheet Factory
+      <div className="min-w-0">
+        <h2 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <Grid3x3 className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" style={{ color: '#0ea5e9' }} /> Sheet Factory
         </h2>
-        <p className="text-slate-500 mt-1">Generate sheets for a scheduled game · 6 tickets per sheet · all 90 numbers covered</p>
+        <p className="text-slate-500 text-sm sm:text-base mt-1">Generate sheets for a scheduled game · 6 tickets per sheet · all 90 numbers covered</p>
       </div>
 
       {/* ── When no game is selected: just the selector ── */}
@@ -447,8 +447,8 @@ export function SheetFactory({ tambola }: SheetFactoryProps) {
           </div>
         </div>
       ) : (
-        /* ── 2-COLUMN LAYOUT once game is selected ── */
-        <div className="grid grid-cols-3 gap-4 w-full items-start">
+        /* ── 2-COLUMN LAYOUT once game is selected (stacked on phones) ── */
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 w-full items-start">
 
           {/* ── LEFT: controls panel ── */}
           <div className="space-y-4">
@@ -562,8 +562,8 @@ export function SheetFactory({ tambola }: SheetFactoryProps) {
               </div>
 
               {/* Row 2: generate */}
-              <div className="flex items-end gap-3 pt-3 border-t border-slate-100">
-                <div className="w-40">
+              <div className="flex flex-wrap items-end gap-3 pt-3 border-t border-slate-100">
+                <div className="w-32 sm:w-40">
                   <Label className="text-xs text-slate-500 mb-1.5 block">Sheets to Generate</Label>
                   <Input
                     type="text" inputMode="numeric"
@@ -590,10 +590,10 @@ export function SheetFactory({ tambola }: SheetFactoryProps) {
           </Card>
           </div>
 
-          <div className="col-span-2 space-y-3">
+          <div className="lg:col-span-2 space-y-3 w-full min-w-0">
 
           {orphanSheets.length > 0 && (
-            <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm">
               <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
               <p className="flex-1 text-amber-800">
                 <span className="font-semibold">{orphanSheets.length} orphan sheet{orphanSheets.length > 1 ? 's' : ''}</span> not linked to any game.
@@ -609,12 +609,12 @@ export function SheetFactory({ tambola }: SheetFactoryProps) {
 
             {/* Status filter tabs */}
             <CardHeader className="pb-0 px-0">
-              <div className="flex items-center border-b border-slate-200 px-4">
+              <div className="flex flex-wrap items-center border-b border-slate-200 px-3 sm:px-4 gap-y-1">
                 {(['all', 'available', 'assigned', 'sold'] as StatusFilter[]).map(f => (
                   <button
                     key={f}
                     onClick={() => setFilter(f)}
-                    className={`pb-3 px-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                    className={`pb-3 px-2.5 sm:px-3 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${
                       statusFilter === f
                         ? 'border-amber-500 text-amber-600'
                         : 'border-transparent text-slate-500 hover:text-slate-700'
@@ -628,7 +628,7 @@ export function SheetFactory({ tambola }: SheetFactoryProps) {
                 ))}
 
                 {/* Bulk actions */}
-                <div className="ml-auto flex items-center gap-2 pb-2.5">
+                <div className="ml-auto flex items-center flex-wrap gap-2 pb-2.5">
                   {selected.size > 0 && (
                     <>
                       <span className="text-xs text-slate-500">{selected.size} selected</span>
@@ -688,11 +688,11 @@ export function SheetFactory({ tambola }: SheetFactoryProps) {
                 <>
                   {/* Column header */}
                   <div className="flex items-center gap-3 px-1 pb-2 text-xs text-slate-400 font-medium border-b border-slate-100">
-                    <input type="checkbox" className="w-3.5 h-3.5 accent-amber-500 shrink-0" checked={pageAllSel} onChange={toggleSelectPage} />
-                    <span className="w-24 shrink-0">Sheet ID</span>
-                    <span className="w-20 shrink-0">Status</span>
-                    <span className="flex-1">Assigned To / Buyer</span>
-                    <span className="w-28 text-right shrink-0">Actions</span>
+                    <input type="checkbox" className="w-4 h-4 accent-amber-500 shrink-0" checked={pageAllSel} onChange={toggleSelectPage} />
+                    <span className="sm:w-24 shrink-0">Sheet ID</span>
+                    <span className="hidden sm:inline w-20 shrink-0">Status</span>
+                    <span className="hidden sm:inline flex-1">Assigned To / Buyer</span>
+                    <span className="w-28 text-right shrink-0 ml-auto">Actions</span>
                   </div>
 
                   <div className="divide-y divide-slate-50">
@@ -719,11 +719,11 @@ export function SheetFactory({ tambola }: SheetFactoryProps) {
 
                   {/* Pagination */}
                   {totalPages > 1 && (
-                    <div className="flex items-center justify-between pt-3 mt-2 border-t border-slate-100">
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-3 mt-2 border-t border-slate-100">
                       <span className="text-xs text-slate-500">
                         {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filteredSheets.length)} of {filteredSheets.length}
                       </span>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 order-last sm:order-none mx-auto sm:mx-0">
                         <Button size="sm" variant="outline" className="h-7 w-7 p-0" disabled={safePage === 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
                           <ChevronLeft className="w-3.5 h-3.5" />
                         </Button>

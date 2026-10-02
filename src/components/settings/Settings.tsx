@@ -250,10 +250,10 @@ export function Settings({ tambola, apiKey, initOperator, onLogout }: Props) {
               </div>
             ) : (
               <>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <input type="password" value={inputKey} onChange={e => setInputKey(e.target.value)} onKeyDown={e => e.key === 'Enter' && connect()}
                     placeholder="Paste your API key…"
-                    className="flex-1 rounded-xl px-3 py-2.5 text-sm font-mono bg-white/10 border border-white/15 text-white placeholder-white/25 focus:outline-none focus:border-violet-400" />
+                    className="flex-1 min-w-0 basis-48 rounded-xl px-3 py-2.5 text-sm font-mono bg-white/10 border border-white/15 text-white placeholder-white/25 focus:outline-none focus:border-violet-400" />
                   <button onClick={connect} disabled={keyStatus === 'checking' || !inputKey.trim()}
                     className="px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-40 flex items-center gap-1.5 shrink-0 transition-colors">
                     {keyStatus === 'checking' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />} Connect

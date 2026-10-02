@@ -615,7 +615,7 @@ function AgentDashboard({ agent, onLogout }: { agent: Agent; onLogout: () => voi
         </div>
 
         {/* Stats strip */}
-        <div className="grid grid-cols-3 gap-3 w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
           {[
             { label: 'Total Sheets',    value: mySheets.length,                                           icon: Package, color: 'text-slate-800' },
             { label: 'Sold',            value: totalSold,                                                 icon: ShoppingBag, color: 'text-emerald-600' },

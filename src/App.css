@@ -35,3 +35,18 @@
   .no-print { display: none !important; }
   .print-only { display: block !important; }
 }
+
+/* Mobile full-menu sheet slide-up (see components/layout/MobileNav.tsx). */
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* The global transition-property rule above animates `transform` on every
+   element, which fights the keyframe on the sheet panel itself. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

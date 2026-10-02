@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import {
   Dice5, Eye, EyeOff, Loader2, Globe, Radio, Upload,
-  Menu, X, UserCircle2, LayoutDashboard, Users, Ticket,
+  Menu, UserCircle2, LayoutDashboard, Users, Ticket,
   ClipboardList, History, UserCircle, ShoppingBag, ListOrdered,
+  MoreHorizontal, ScanSearch, Trophy,
 } from 'lucide-react';
 import { mktGetInfo, mktSignup } from '@/services/marketplaceApi';
 import { useTambola } from '@/hooks/useTambola';
@@ -25,6 +26,7 @@ import { GamesHome } from '@/components/marketplace/GamesHome';
 import { PlanALiveGame } from '@/components/plan-a/PlanALiveGame';
 import { SheetLibrary } from '@/components/plan-a/SheetLibrary';
 import { PlanAOrders } from '@/components/plan-a/PlanAOrders';
+import { BottomNav, MoreSheet, NavItem } from '@/components/layout/MobileNav';
 import { Toaster } from '@/components/ui/sonner';
 import { cn } from '@/lib/utils';
 import type { AppPage } from '@/types';
@@ -43,25 +45,59 @@ const PLAN_A_NAV: { page: PlanAPage; label: string; short: string; icon: React.E
   { page: 'profile',   label: 'Profile',        short: 'Profile', icon: UserCircle2  },
 ];
 
-const PLAN_B_SIDE: { page: AppPage; label: string; icon: React.ElementType }[] = [
-  { page: 'dashboard',        label: 'Dashboard',     icon: LayoutDashboard },
-  { page: 'sheets',           label: 'Sheet Factory', icon: Ticket          },
+/* Every Plan B page, in sidebar order. The phone used to reach only the five
+ * entries in PLAN_B_MOB below; the rest now live in the More sheet, which
+ * renders this same list, so desktop and phone expose identical pages. */
+const PLAN_B_SIDE: { page: AppPage; label: string; short?: string; icon: React.ElementType }[] = [
+  { page: 'dashboard',        label: 'Dashboard',     short: 'Home',   icon: LayoutDashboard },
+  { page: 'sheets',           label: 'Sheet Factory', short: 'Sheets', icon: Ticket          },
   { page: 'agents',           label: 'Agents',        icon: Users           },
   { page: 'players',          label: 'Players',       icon: UserCircle      },
   { page: 'pending-payments', label: 'Orders',        icon: ClipboardList   },
-  { page: 'live-game',        label: 'Live Game',     icon: Radio           },
+  { page: 'live-game',        label: 'Live Game',     short: 'Live',   icon: Radio           },
+  { page: 'verifier',         label: 'Verifier',      icon: ScanSearch      },
+  { page: 'prizes',           label: 'Prizes',        icon: Trophy          },
   { page: 'history',          label: 'History',       icon: History         },
-  { page: 'settings',         label: 'My Games',      icon: Globe           },
+  { page: 'settings',         label: 'My Games',      short: 'Games',  icon: Globe           },
   { page: 'profile',          label: 'Profile',       icon: UserCircle2     },
 ];
 
-const PLAN_B_MOB: { page: AppPage; label: string; icon: React.ElementType }[] = [
-  { page: 'dashboard',        label: 'Home',    icon: LayoutDashboard },
-  { page: 'live-game',        label: 'Live',    icon: Radio           },
-  { page: 'pending-payments', label: 'Orders',  icon: ShoppingBag     },
-  { page: 'settings',         label: 'Games',   icon: Globe           },
-  { page: 'profile',          label: 'Profile', icon: UserCircle2     },
+/* The four pages an operator touches mid-game get a permanent tab; the fifth
+ * slot is the More sheet. */
+const PLAN_B_MOB: { page: AppPage; label: string; short: string; icon: React.ElementType }[] = [
+  { page: 'dashboard',        label: 'Dashboard', short: 'Home',   icon: LayoutDashboard },
+  { page: 'live-game',        label: 'Live Game', short: 'Live',   icon: Radio           },
+  { page: 'pending-payments', label: 'Orders',    short: 'Orders', icon: ShoppingBag     },
+  { page: 'settings',         label: 'My Games',  short: 'Games',  icon: Globe           },
 ];
+
+const PLAN_B_MOB_PAGES = new Set<string>(PLAN_B_MOB.map(n => n.page));
+/* Plan A calls its order queue 'orders' where Plan B calls it
+ * 'pending-payments'; the manifest shortcut carries Plan B's key, so alias it
+ * rather than shipping a shortcut that lands on the wrong page. */
+const PLAN_A_SHORTCUT_ALIASES: Record<string, PlanAPage> = { 'pending-payments': 'orders' };
+const PLAN_A_PAGES = new Set<string>([
+  ...PLAN_A_NAV.map(n => n.page),
+  ...Object.keys(PLAN_A_SHORTCUT_ALIASES),
+]);
+const PLAN_B_PAGES = new Set<string>(PLAN_B_SIDE.map(n => n.page));
+
+/* `?page=…` is how the installed app's home-screen shortcuts
+ * (manifest.shortcuts in vite.config.ts) open straight onto a page. Returns
+ * the requested page once, only if this plan actually has it. */
+function useShortcutPage(valid: Set<string>, apply: (page: string) => void) {
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get('page');
+    if (!requested || !valid.has(requested)) return;
+    apply(requested);
+    // Drop the param so a later reload doesn't yank the operator back here.
+    const url = new URL(window.location.href);
+    url.searchParams.delete('page');
+    window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+    // Runs once on mount; `valid`/`apply` are stable for a given plan.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+}
 
 // ── Login ─────────────────────────────────────────────────────────────────────
 
@@ -218,38 +254,14 @@ function Login({ onSuccess }: { onSuccess: (s: OpSession) => void }) {
   );
 }
 
-// ── Shared sidebar + bottom nav ────────────────────────────────────────────────
-
-function NavItem({ page, label, icon: Icon, active, badge, onClick }: {
-  page: string; label: string; icon: React.ElementType; active: boolean;
-  badge?: number; onClick: () => void;
-}) {
-  return (
-    <button onClick={onClick} className={cn(
-      'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all text-left',
-      active ? 'bg-white/20 text-white' : 'text-white/50 hover:bg-white/10 hover:text-white/80'
-    )}>
-      <div className="relative shrink-0">
-        <Icon className="w-4 h-4" />
-        {page === 'live-game' && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-white rounded-full animate-pulse" />}
-      </div>
-      <span className="flex-1 truncate">{label}</span>
-      {badge ? (
-        <span className="min-w-[18px] h-4 bg-amber-400 text-slate-900 text-[9px] font-black rounded-full flex items-center justify-center px-1">
-          {badge > 99 ? '99+' : badge}
-        </span>
-      ) : null}
-    </button>
-  );
-}
-
 // ── Plan A ────────────────────────────────────────────────────────────────────
 
 function PlanAApp({ session, onLogout }: { session: OpSession; onLogout: () => void }) {
   const [page, setPage] = useState<PlanAPage>('games');
   const [splash, setSplash] = useState(true);
-  const [drawer, setDrawer] = useState(false);
+  const [menu, setMenu] = useState(false);
   useEffect(() => { const t = setTimeout(() => setSplash(false), 1400); return () => clearTimeout(t); }, []);
+  useShortcutPage(PLAN_A_PAGES, p => setPage(PLAN_A_SHORTCUT_ALIASES[p] ?? (p as PlanAPage)));
 
   const pageLabel = PLAN_A_NAV.find(n => n.page === page)?.label ?? 'TukpaMaster';
 
@@ -269,8 +281,8 @@ function PlanAApp({ session, onLogout }: { session: OpSession; onLogout: () => v
       <div className="flex h-[100dvh] w-screen overflow-hidden" style={{ backgroundColor: '#2e1065' }}>
 
         {/* ── Desktop sidebar ── */}
-        <aside className="hidden md:flex w-52 flex-col shrink-0" style={{ background: 'linear-gradient(180deg,#5b21b6,#2e1065)' }}>
-          <div className="px-4 py-5 border-b border-white/10">
+        <aside className="hidden md:flex w-52 flex-col shrink-0 pl-safe" style={{ background: 'linear-gradient(180deg,#5b21b6,#2e1065)' }}>
+          <div className="px-4 py-5 border-b border-white/10 pt-safe">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-2xl bg-white/15 flex items-center justify-center shrink-0">
                 <Dice5 className="w-5 h-5 text-white" />
@@ -293,57 +305,44 @@ function PlanAApp({ session, onLogout }: { session: OpSession; onLogout: () => v
 
         {/* ── Content ── */}
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-          {/* Topbar */}
-          <div className="h-12 flex items-center gap-3 px-4 shrink-0 border-b border-white/5" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}>
-            <button className="md:hidden p-1.5 text-white/50 hover:text-white" onClick={() => setDrawer(true)}>
-              <Menu className="w-5 h-5" />
-            </button>
-            <span className="text-sm font-bold text-white/70 flex-1 truncate">{pageLabel}</span>
+          {/* Topbar — pt-safe keeps it clear of the notch in standalone mode */}
+          <div className="shrink-0 border-b border-white/5 pt-safe" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}>
+            <div className="h-12 flex items-center gap-2 px-3 md:px-4">
+              <button
+                className="md:hidden -ml-1 p-2 text-white/60 hover:text-white"
+                aria-label="Open menu"
+                onClick={() => setMenu(true)}
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+              <span className="text-sm font-bold text-white/70 flex-1 truncate">{pageLabel}</span>
+            </div>
           </div>
           {/* Page */}
-          <main className="flex-1 overflow-auto p-4 md:p-6 pb-[76px] md:pb-6">{renderPage()}</main>
+          <main className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 md:p-6 pb-nav md:pb-6">{renderPage()}</main>
         </div>
 
         {/* ── Mobile bottom nav ── */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex"
-          style={{ background: 'linear-gradient(180deg,#5b21b6,#2e1065)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
-          {PLAN_A_NAV.map(n => {
-            const active = page === n.page;
-            return (
-              <button key={n.page} onClick={() => setPage(n.page)}
-                className={cn('flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-semibold relative transition-colors',
-                  active ? 'text-white' : 'text-white/40')}>
-                <n.icon className="w-5 h-5" />
-                <span>{n.short}</span>
-                {active && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-white rounded-full" />}
-              </button>
-            );
-          })}
-        </nav>
+        <BottomNav
+          items={PLAN_A_NAV}
+          currentPage={page}
+          onSelect={p => setPage(p as PlanAPage)}
+        />
 
-        {/* ── Mobile drawer ── */}
-        {drawer && (
-          <div className="md:hidden fixed inset-0 z-50 flex">
-            <div className="absolute inset-0 bg-black/60" onClick={() => setDrawer(false)} />
-            <aside className="relative w-64 flex flex-col" style={{ background: 'linear-gradient(180deg,#5b21b6,#2e1065)' }}>
-              <div className="px-4 py-4 border-b border-white/10 flex items-center justify-between">
-                <div>
-                  <p className="font-black text-white text-sm">TukpaMaster</p>
-                  <p className="text-white/40 text-xs">{session.operator.name}</p>
-                </div>
-                <button onClick={() => setDrawer(false)} className="text-white/50 p-1"><X className="w-5 h-5" /></button>
-              </div>
-              <nav className="flex-1 p-3 space-y-1">
-                {PLAN_A_NAV.map(n => (
-                  <NavItem key={n.page} page={n.page} label={n.label} icon={n.icon} active={page === n.page}
-                    onClick={() => { setPage(n.page); setDrawer(false); }} />
-                ))}
-              </nav>
-            </aside>
-          </div>
-        )}
+        {/* ── Mobile full menu ── */}
+        <MoreSheet
+          open={menu}
+          onClose={() => setMenu(false)}
+          title="TukpaMaster"
+          subtitle={session.operator.name}
+          items={PLAN_A_NAV}
+          currentPage={page}
+          onSelect={p => setPage(p as PlanAPage)}
+          planLabel="Plan A · Own Sheets"
+          onLogout={onLogout}
+        />
 
-        <Toaster position="top-right" />
+        <Toaster position="top-center" />
       </div>
     </>
   );
@@ -354,8 +353,9 @@ function PlanAApp({ session, onLogout }: { session: OpSession; onLogout: () => v
 function PlanBApp({ session, onLogout }: { session: OpSession; onLogout: () => void }) {
   const tambola = useTambola();
   const [splash, setSplash] = useState(true);
-  const [drawer, setDrawer] = useState(false);
+  const [menu, setMenu] = useState(false);
   useEffect(() => { const t = setTimeout(() => setSplash(false), 1400); return () => clearTimeout(t); }, []);
+  useShortcutPage(PLAN_B_PAGES, p => tambola.setCurrentPage(p as AppPage));
 
   const PAGE_LABELS: Record<string, string> = {
     dashboard: 'Dashboard', sheets: 'Sheet Factory', agents: 'Agents',
@@ -390,8 +390,8 @@ function PlanBApp({ session, onLogout }: { session: OpSession; onLogout: () => v
       <div className="flex h-[100dvh] w-screen overflow-hidden" style={{ backgroundColor: '#2e1065' }}>
 
         {/* Desktop sidebar */}
-        <aside className="hidden md:flex w-52 flex-col shrink-0" style={{ background: 'linear-gradient(180deg,#5b21b6,#2e1065)' }}>
-          <div className="px-4 py-5 border-b border-white/10">
+        <aside className="hidden md:flex w-52 flex-col shrink-0 pl-safe" style={{ background: 'linear-gradient(180deg,#5b21b6,#2e1065)' }}>
+          <div className="px-4 py-5 border-b border-white/10 pt-safe">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-2xl bg-white/15 flex items-center justify-center shrink-0">
                 <Dice5 className="w-5 h-5 text-white" />
@@ -417,69 +417,52 @@ function PlanBApp({ session, onLogout }: { session: OpSession; onLogout: () => v
 
         {/* Content */}
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-          <div className="h-12 flex items-center gap-3 px-4 shrink-0 border-b border-white/5" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}>
-            <button className="md:hidden p-1.5 text-white/50 hover:text-white" onClick={() => setDrawer(true)}>
-              <Menu className="w-5 h-5" />
-            </button>
-            <span className="text-sm font-bold text-white/70 flex-1 truncate">
-              {PAGE_LABELS[tambola.currentPage] ?? tambola.currentPage}
-            </span>
-            <Header tambola={tambola} compact />
+          {/* Topbar — pt-safe keeps it clear of the notch in standalone mode */}
+          <div className="shrink-0 border-b border-white/5 pt-safe" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}>
+            <div className="h-12 flex items-center gap-2 px-3 md:px-4">
+              <button
+                className="md:hidden -ml-1 p-2 text-white/60 hover:text-white"
+                aria-label="Open menu"
+                onClick={() => setMenu(true)}
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+              <span className="text-sm font-bold text-white/70 flex-1 min-w-0 truncate">
+                {PAGE_LABELS[tambola.currentPage] ?? tambola.currentPage}
+              </span>
+              <Header tambola={tambola} compact />
+            </div>
           </div>
-          <main className="flex-1 overflow-auto p-4 md:p-6 pb-[76px] md:pb-6">{renderPage()}</main>
+          <main className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 md:p-6 pb-nav md:pb-6">{renderPage()}</main>
         </div>
 
-        {/* Mobile bottom nav */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex"
-          style={{ background: 'linear-gradient(180deg,#5b21b6,#2e1065)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
-          {PLAN_B_MOB.map(n => {
-            const active = tambola.currentPage === n.page;
-            const badge = n.page === 'pending-payments' && pending > 0 ? pending : 0;
-            return (
-              <button key={n.page} onClick={() => tambola.setCurrentPage(n.page)}
-                className={cn('flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-semibold relative transition-colors',
-                  active ? 'text-white' : 'text-white/40')}>
-                <div className="relative">
-                  <n.icon className="w-5 h-5" />
-                  {n.page === 'live-game' && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-white rounded-full animate-pulse" />}
-                  {badge > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 bg-amber-400 text-slate-900 text-[8px] font-black rounded-full flex items-center justify-center px-0.5">
-                      {badge > 9 ? '9+' : badge}
-                    </span>
-                  )}
-                </div>
-                <span>{n.label}</span>
-                {active && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-white rounded-full" />}
-              </button>
-            );
-          })}
-        </nav>
+        {/* Mobile bottom nav — four live tabs plus the full menu */}
+        <BottomNav
+          items={PLAN_B_MOB}
+          currentPage={tambola.currentPage}
+          onSelect={p => tambola.setCurrentPage(p as AppPage)}
+          badges={{ 'pending-payments': pending }}
+          onMore={() => setMenu(true)}
+          moreOpen={menu}
+          moreIcon={MoreHorizontal}
+          moreActive={!PLAN_B_MOB_PAGES.has(tambola.currentPage)}
+        />
 
-        {/* Mobile drawer */}
-        {drawer && (
-          <div className="md:hidden fixed inset-0 z-50 flex">
-            <div className="absolute inset-0 bg-black/60" onClick={() => setDrawer(false)} />
-            <aside className="relative w-64 flex flex-col" style={{ background: 'linear-gradient(180deg,#5b21b6,#2e1065)' }}>
-              <div className="px-4 py-4 border-b border-white/10 flex items-center justify-between">
-                <div>
-                  <p className="font-black text-white text-sm">TukpaMaster</p>
-                  <p className="text-white/40 text-xs">{session.operator.name}</p>
-                </div>
-                <button onClick={() => setDrawer(false)} className="text-white/50 p-1"><X className="w-5 h-5" /></button>
-              </div>
-              <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-                {PLAN_B_SIDE.map(n => (
-                  <NavItem key={n.page} page={n.page} label={n.label} icon={n.icon}
-                    active={tambola.currentPage === n.page}
-                    badge={n.page === 'pending-payments' ? pending : undefined}
-                    onClick={() => { tambola.setCurrentPage(n.page); setDrawer(false); }} />
-                ))}
-              </nav>
-            </aside>
-          </div>
-        )}
+        {/* Mobile full menu — every sidebar page, nothing hidden off-screen */}
+        <MoreSheet
+          open={menu}
+          onClose={() => setMenu(false)}
+          title="TukpaMaster"
+          subtitle={session.operator.name}
+          items={PLAN_B_SIDE}
+          currentPage={tambola.currentPage}
+          onSelect={p => tambola.setCurrentPage(p as AppPage)}
+          badges={{ 'pending-payments': pending }}
+          planLabel="Plan B · Generate"
+          onLogout={onLogout}
+        />
 
-        <Toaster position="top-right" />
+        <Toaster position="top-center" />
       </div>
     </>
   );
