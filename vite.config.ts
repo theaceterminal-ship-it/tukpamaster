@@ -22,7 +22,8 @@ export default defineConfig({
         theme_color: '#2e1065',
         background_color: '#2e1065',
         display: 'standalone',
-        orientation: 'portrait-primary',
+        // Layouts are fluid now, so let the installed app follow the device.
+        orientation: 'any',
         start_url: '/',
         scope: '/',
         shortcuts: [

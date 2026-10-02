@@ -392,10 +392,10 @@ export function SheetFactory({ tambola }: SheetFactoryProps) {
 
       {/* Page heading */}
       <div className="min-w-0">
-        <h2 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center gap-2">
+        <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
           <Grid3x3 className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" style={{ color: '#0ea5e9' }} /> Sheet Factory
         </h2>
-        <p className="text-slate-500 text-sm sm:text-base mt-1">Generate sheets for a scheduled game · 6 tickets per sheet · all 90 numbers covered</p>
+        <p className="text-white/60 text-sm sm:text-base mt-1">Generate sheets for a scheduled game · 6 tickets per sheet · all 90 numbers covered</p>
       </div>
 
       {/* ── When no game is selected: just the selector ── */}
@@ -439,11 +439,11 @@ export function SheetFactory({ tambola }: SheetFactoryProps) {
             </CardContent>
           </Card>
           <div className="flex flex-col items-center justify-center py-20 space-y-3 text-center">
-            <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center">
-              <Grid3x3 className="w-8 h-8 text-slate-300" />
+            <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center">
+              <Grid3x3 className="w-8 h-8 text-white/40" />
             </div>
-            <p className="text-slate-500 font-medium">Select a game above to manage its sheets</p>
-            <p className="text-xs text-slate-400">Sheets are always tied to a specific game</p>
+            <p className="text-white/70 font-medium">Select a game above to manage its sheets</p>
+            <p className="text-xs text-white/40">Sheets are always tied to a specific game</p>
           </div>
         </div>
       ) : (

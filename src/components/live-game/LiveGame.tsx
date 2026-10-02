@@ -527,10 +527,10 @@ export function LiveGame({ tambola }: LiveGameProps) {
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center gap-2">
+            <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
               <Radio className="w-5 h-5 sm:w-6 sm:h-6 text-red-500 shrink-0" /> Live Game Studio
             </h2>
-            <p className="text-slate-500 text-sm sm:text-base mt-1">Launch or schedule your Tukpa game.</p>
+            <p className="text-white/60 text-sm sm:text-base mt-1">Launch or schedule your Tukpa game.</p>
           </div>
           <Button onClick={() => setSchedDialogOpen(true)} className="gap-2 font-bold text-white shrink-0" style={{ backgroundColor: '#0ea5e9' }}>
             <Calendar className="w-4 h-4" /> Schedule New Game
@@ -624,10 +624,10 @@ export function LiveGame({ tambola }: LiveGameProps) {
             </CardContent>
           </Card>
         ) : (
-          <div className="rounded-2xl p-12 text-center border-2 border-dashed border-slate-200">
-            <Calendar className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-500 font-medium">No games scheduled yet</p>
-            <p className="text-sm text-slate-400 mt-1 mb-4">Schedule a game to set prizes, sheets, and go live</p>
+          <div className="rounded-2xl p-8 sm:p-12 text-center border-2 border-dashed border-white/20">
+            <Calendar className="w-10 h-10 text-white/40 mx-auto mb-3" />
+            <p className="text-white/70 font-medium">No games scheduled yet</p>
+            <p className="text-sm text-white/40 mt-1 mb-4">Schedule a game to set prizes, sheets, and go live</p>
             <Button onClick={() => setSchedDialogOpen(true)} className="gap-2 font-bold text-white" style={{ backgroundColor: '#0ea5e9' }}>
               <Calendar className="w-4 h-4" /> Schedule a Game
             </Button>
@@ -647,7 +647,7 @@ export function LiveGame({ tambola }: LiveGameProps) {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div className="flex items-center flex-wrap gap-x-3 gap-y-1.5 min-w-0">
-          <h2 className="text-lg sm:text-xl font-bold text-slate-800 truncate max-w-full">{currentGame.name}</h2>
+          <h2 className="text-lg sm:text-xl font-bold text-white truncate max-w-full">{currentGame.name}</h2>
           <Badge variant={isActive ? 'destructive' : 'secondary'} className="gap-1">
             {isActive && <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />}
             {currentGame.status.toUpperCase()}

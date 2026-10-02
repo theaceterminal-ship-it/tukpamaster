@@ -31,11 +31,11 @@ export function GameHistory({ tambola }: GameHistoryProps) {
       {/* ── Header ── */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
             <History className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" style={{ color: '#0ea5e9' }} />
             Game History
           </h2>
-          <p className="text-slate-500 text-sm sm:text-base mt-1">View all past games, winners, and statistics.</p>
+          <p className="text-white/60 text-sm sm:text-base mt-1">View all past games, winners, and statistics.</p>
         </div>
         {gameHistory.length > 0 && (
           <Button

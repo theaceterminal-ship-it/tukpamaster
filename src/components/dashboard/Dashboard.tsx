@@ -139,8 +139,8 @@ export function Dashboard({ tambola }: DashboardProps) {
       <div className="space-y-4 w-full">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-800">Dashboard</h2>
-            <p className="text-slate-500 text-sm mt-0.5">Operator overview.</p>
+            <h2 className="text-xl sm:text-2xl font-bold text-white">Dashboard</h2>
+            <p className="text-white/60 text-sm mt-0.5">Operator overview.</p>
           </div>
           <Button onClick={() => window.open('/marketplace', '_blank')} variant="outline" className="gap-2 font-semibold shrink-0">
             <ExternalLink className="w-4 h-4" /> Marketplace
@@ -306,8 +306,8 @@ export function Dashboard({ tambola }: DashboardProps) {
       {/* ── Page header ─────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-800">Dashboard</h2>
-          <p className="text-slate-500 text-sm mt-0.5">Operator overview for today's game.</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-white">Dashboard</h2>
+          <p className="text-white/60 text-sm mt-0.5">Operator overview for today's game.</p>
         </div>
         <Button
           onClick={() => window.open('/marketplace', '_blank')}
