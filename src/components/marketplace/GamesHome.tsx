@@ -28,6 +28,7 @@ export function GamesHome({ apiKey, initialOperator }: Props) {
   const [games,         setGames]         = useState<MktGame[]>([]);
   const [purchases,     setPurchases]     = useState<MktPurchase[]>([]);
   const [loading,    setLoading]    = useState(false);
+  const [loadErr,    setLoadErr]    = useState('');
   const [wizard,     setWizard]     = useState(false);
   const [assignFrom, setAssignFrom] = useState<Record<string, string>>({});
   const [assignTo,   setAssignTo]   = useState<Record<string, string>>({});
@@ -45,7 +46,13 @@ export function GamesHome({ apiKey, initialOperator }: Props) {
     try {
       const [info, purch] = await Promise.all([mktGetInfo(apiKey), mktGetPurchases(apiKey)]);
       setOperator(info.operator); setGames(info.games); setPurchases(purch.purchases);
-    } catch { /* silent */ }
+      setLoadErr('');
+    } catch (e) {
+      // Swallowing this made a rejected key or a network failure look exactly
+      // like an account with no games — the usual report being "my games don't
+      // show up on this device".
+      setLoadErr(e instanceof Error ? e.message : 'Could not reach the marketplace');
+    }
     finally { setLoading(false); }
   }, [apiKey]);
 
@@ -127,6 +134,20 @@ export function GamesHome({ apiKey, initialOperator }: Props) {
         </button>
       </div>
 
+      {/* A failed load must not read as an empty account */}
+      {loadErr && (
+        <div className="flex items-start gap-2.5 rounded-xl px-4 py-2.5 border border-red-400/25 bg-red-400/10 shrink-0">
+          <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-red-300 text-sm font-semibold">Couldn't load your games</p>
+            <p className="text-red-300/70 text-xs break-words">{loadErr}</p>
+          </div>
+          <button onClick={loadData} className="text-xs font-bold text-red-200 hover:text-white shrink-0 underline">
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Pending alert */}
       {totalPending > 0 && (
         <div className="flex items-center gap-2.5 rounded-xl px-4 py-2.5 border border-amber-400/20 bg-amber-400/10 shrink-0">
@@ -144,7 +165,11 @@ export function GamesHome({ apiKey, initialOperator }: Props) {
         ) : games.length === 0 ? (
           <div className="flex flex-col items-center py-16 gap-3">
             <Globe className="w-10 h-10 text-white/20" />
-            <p className="text-white/40 text-sm">No games yet. Tap New Game to get started.</p>
+            <p className="text-white/40 text-sm text-center px-6">
+              {loadErr
+                ? "Your games couldn't be loaded — this isn't necessarily an empty account."
+                : 'No games yet. Tap New Game to get started.'}
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4">

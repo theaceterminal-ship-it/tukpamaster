@@ -200,16 +200,16 @@ export function SheetLibrary({ apiKey }: Props) {
         <div className="bg-white/10 rounded-xl p-4 text-center">
           {statsLoading
             ? <Loader2 className="w-6 h-6 text-white/50 animate-spin mx-auto" />
-            : <p className="text-3xl font-black text-white">{(libraryCount ?? 0).toLocaleString()}</p>
+            : <p className="text-2xl sm:text-3xl font-black text-white tabular-nums">{(libraryCount ?? 0).toLocaleString()}</p>
           }
           <p className="text-white/50 text-xs mt-1">In Library</p>
         </div>
         <div className="bg-white/10 rounded-xl p-4 text-center">
-          <p className="text-3xl font-black text-emerald-300">{done}</p>
+          <p className="text-2xl sm:text-3xl font-black text-emerald-300 tabular-nums">{done}</p>
           <p className="text-white/50 text-xs mt-1">Uploaded</p>
         </div>
         <div className="bg-white/10 rounded-xl p-4 text-center">
-          <p className={`text-3xl font-black ${failed > 0 ? 'text-red-300' : 'text-white/30'}`}>{failed}</p>
+          <p className={`text-2xl sm:text-3xl font-black tabular-nums ${failed > 0 ? 'text-red-300' : 'text-white/30'}`}>{failed}</p>
           <p className="text-white/50 text-xs mt-1">Failed</p>
         </div>
       </div>

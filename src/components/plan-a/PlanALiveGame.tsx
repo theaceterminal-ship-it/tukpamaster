@@ -121,10 +121,10 @@ function SetupScreen({
   return (
     <div className="max-w-xl mx-auto space-y-5">
       <div>
-        <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+        <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
           <Radio className="w-6 h-6 text-red-500" /> Live Game
         </h2>
-        <p className="text-slate-500 mt-1 text-sm">
+        <p className="text-white/60 mt-1 text-sm">
           Pick one of your games — name, sheet range and prizes are preset from it.
         </p>
       </div>

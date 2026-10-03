@@ -125,7 +125,13 @@ export function Dashboard({ tambola }: DashboardProps) {
     if (focusedGame.hasJackpot) {
       dividends.push({ id: `DIV-${Date.now()}-jp`, type: 'full-house', name: 'Jackpot', prize: focusedGame.jackpotAmount, claimed: false });
     }
-    const game = await createGame(focusedGame.name, focusedGame.sheetIds, dividends);
+    // Carry the marketplace link through, or this session broadcasts its calls
+    // and claims to an ad-hoc namespace instead of the real listing — the Live
+    // Game page's own launch button already does this.
+    const game = await createGame(
+      focusedGame.name, focusedGame.sheetIds, dividends,
+      focusedGame.mktGameId, focusedGame.joinLink, focusedGame.joinDetails,
+    );
     linkScheduledGame(focusedGame.id, game.id);
     setCurrentPage('live-game');
   };
@@ -137,22 +143,22 @@ export function Dashboard({ tambola }: DashboardProps) {
     );
     return (
       <div className="space-y-4 w-full">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-800">Dashboard</h2>
-            <p className="text-slate-500 text-sm mt-0.5">Operator overview.</p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-xl sm:text-2xl font-bold text-white">Dashboard</h2>
+            <p className="text-white/60 text-sm mt-0.5">Operator overview.</p>
           </div>
-          <Button onClick={() => window.open('/marketplace', '_blank')} variant="outline" className="gap-2 font-semibold">
+          <Button onClick={() => window.open('/marketplace', '_blank')} variant="outline" className="gap-2 font-semibold shrink-0">
             <ExternalLink className="w-4 h-4" /> Marketplace
           </Button>
         </div>
 
-        <div className="grid grid-cols-3 gap-4 w-full">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 w-full">
           {/* Left 2 cols: hero + games list */}
-          <div className="col-span-2 space-y-4">
+          <div className="lg:col-span-2 space-y-4">
             {/* Hero */}
             <div
-              className="relative w-full overflow-hidden rounded-2xl px-8 py-10 flex flex-col items-center justify-center text-center gap-4"
+              className="relative w-full overflow-hidden rounded-2xl px-5 py-8 sm:px-8 sm:py-10 flex flex-col items-center justify-center text-center gap-4"
               style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #0f172a 100%)' }}
             >
               <div className="absolute -top-16 -left-16 w-64 h-64 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
@@ -179,16 +185,16 @@ export function Dashboard({ tambola }: DashboardProps) {
                   {sortedScheduled.map(g => {
                     const ended = !!(g.sessionId && g.sessionId !== currentGame?.id);
                     return (
-                      <div key={g.id} className="flex items-center justify-between px-4 py-3 rounded-xl bg-gray-50">
-                        <div className="flex items-center gap-3">
+                      <div key={g.id} className="flex items-center justify-between gap-2 px-3 sm:px-4 py-3 rounded-xl bg-gray-50">
+                        <div className="flex items-center gap-3 min-w-0">
                           <div
                             className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
                             style={{ backgroundColor: ended ? '#f3f4f6' : 'rgba(14,165,233,0.12)' }}
                           >
                             <Calendar className="w-4 h-4" style={{ color: ended ? '#9ca3af' : '#0ea5e9' }} />
                           </div>
-                          <div>
-                            <p className="text-sm font-semibold text-gray-900">{g.name}</p>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 truncate">{g.name}</p>
                             <p className="text-xs text-gray-400">
                               {new Date(g.scheduledAt).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
                               {' '}at{' '}
@@ -198,7 +204,7 @@ export function Dashboard({ tambola }: DashboardProps) {
                           </div>
                         </div>
                         <span
-                          className="text-xs font-bold px-2.5 py-1 rounded-full"
+                          className="text-xs font-bold px-2.5 py-1 rounded-full shrink-0"
                           style={ended
                             ? { backgroundColor: '#f3f4f6', color: '#6b7280' }
                             : { backgroundColor: 'rgba(14,165,233,0.12)', color: '#0ea5e9' }}
@@ -304,15 +310,15 @@ export function Dashboard({ tambola }: DashboardProps) {
     <div className="space-y-4 w-full">
 
       {/* ── Page header ─────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-800">Dashboard</h2>
-          <p className="text-slate-500 text-sm mt-0.5">Operator overview for today's game.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-xl sm:text-2xl font-bold text-white">Dashboard</h2>
+          <p className="text-white/60 text-sm mt-0.5">Operator overview for today's game.</p>
         </div>
         <Button
           onClick={() => window.open('/marketplace', '_blank')}
           variant="outline"
-          className="gap-2 font-semibold"
+          className="gap-2 font-semibold shrink-0"
         >
           <ExternalLink className="w-4 h-4" /> Marketplace
         </Button>
@@ -335,18 +341,18 @@ export function Dashboard({ tambola }: DashboardProps) {
         )}
         {hasBg && <div className="absolute inset-0 bg-gradient-to-t from-slate-900/95 via-slate-900/60 to-slate-900/20 pointer-events-none" />}
 
-        {/* Jackpot badge */}
+        {/* Jackpot badge — in flow on phones so it can't cover the game name */}
         {focusedGame.hasJackpot && (
-          <div className="absolute top-4 right-4 flex items-center gap-1 bg-yellow-400/20 border border-yellow-400/50 backdrop-blur-sm rounded-full px-3 py-1 z-10">
-            <Star className="w-3.5 h-3.5 text-yellow-300 fill-yellow-300" />
-            <span className="text-yellow-200 text-xs font-black uppercase tracking-wide">Jackpot ₹{focusedGame.jackpotAmount.toLocaleString()}</span>
+          <div className="relative z-10 mx-5 mt-5 w-fit max-w-[calc(100%-2.5rem)] lg:absolute lg:top-4 lg:right-4 lg:mx-0 lg:mt-0 lg:max-w-none flex items-center gap-1 bg-yellow-400/20 border border-yellow-400/50 backdrop-blur-sm rounded-full px-3 py-1">
+            <Star className="w-3.5 h-3.5 text-yellow-300 fill-yellow-300 shrink-0" />
+            <span className="text-yellow-200 text-xs font-black uppercase tracking-wide truncate">Jackpot ₹{focusedGame.jackpotAmount.toLocaleString()}</span>
           </div>
         )}
 
-        <div className="relative flex items-center justify-between gap-8 px-7 py-6">
+        <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-5 lg:gap-8 px-5 py-5 sm:px-7 sm:py-6">
           {/* Left: label + name + chips */}
           <div className="flex-1 min-w-0 space-y-2.5">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center flex-wrap gap-x-2 gap-y-1">
               {isLive
                 ? <><span className="w-2 h-2 bg-red-400 rounded-full animate-pulse" /><span className="text-xs font-bold text-red-300 uppercase tracking-widest">Live Now</span></>
                 : <><Calendar className="w-3.5 h-3.5 text-slate-400" /><span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
@@ -361,7 +367,7 @@ export function Dashboard({ tambola }: DashboardProps) {
               </span>
             </div>
 
-            <h1 className="text-3xl font-black text-white uppercase leading-tight tracking-tight truncate">
+            <h1 className="text-2xl sm:text-3xl font-black text-white uppercase leading-tight tracking-tight break-words lg:truncate">
               {focusedGame.name}
             </h1>
 
@@ -374,25 +380,25 @@ export function Dashboard({ tambola }: DashboardProps) {
             </div>
           </div>
 
-          {/* Divider */}
-          <div className="w-px self-stretch bg-white/10 shrink-0" />
+          {/* Divider — horizontal while the hero is stacked */}
+          <div className="h-px w-full lg:h-auto lg:w-px lg:self-stretch bg-white/10 shrink-0" />
 
           {/* Center: prize pool + ticket price */}
           <div className="text-center shrink-0">
             <p className="text-xs text-slate-400 uppercase tracking-widest mb-1">Total Prize Pool</p>
-            <p className="text-4xl font-black text-white tabular-nums">₹{totalPrize.toLocaleString()}</p>
+            <p className="text-3xl sm:text-4xl font-black text-white tabular-nums">₹{totalPrize.toLocaleString()}</p>
             <p className="text-sm font-bold text-amber-400 mt-1">₹{focusedGame.ticketPrice}/sheet</p>
           </div>
 
           {/* Divider */}
-          <div className="w-px self-stretch bg-white/10 shrink-0" />
+          <div className="h-px w-full lg:h-auto lg:w-px lg:self-stretch bg-white/10 shrink-0" />
 
           {/* Right: launch CTA */}
           <div className="shrink-0">
             {isLive ? (
               <Button
                 onClick={() => setCurrentPage('live-game')}
-                className="gap-2.5 font-bold text-white px-6 py-2.5 text-sm"
+                className="w-full lg:w-auto gap-2.5 font-bold text-white px-6 py-2.5 text-sm"
                 style={{ backgroundColor: '#0ea5e9' }}
               >
                 <Radio className="w-4 h-4 animate-pulse" /> Open Live Game
@@ -400,7 +406,7 @@ export function Dashboard({ tambola }: DashboardProps) {
             ) : (
               <Button
                 onClick={handleLaunch}
-                className="gap-2.5 font-bold text-white px-6 py-2.5 text-sm"
+                className="w-full lg:w-auto gap-2.5 font-bold text-white px-6 py-2.5 text-sm"
                 style={{ backgroundColor: '#0ea5e9' }}
               >
                 <Radio className="w-4 h-4" /> Launch Game
@@ -417,7 +423,7 @@ export function Dashboard({ tambola }: DashboardProps) {
       </div>
 
       {/* ── STATS STRIP ─────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-4 gap-3 w-full">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 w-full">
         {[
           { label: 'Sheets Sold',    value: sold,                                      icon: Ticket,   color: 'text-emerald-600' },
           { label: 'Available',      value: available,                                 icon: Package,  color: 'text-gray-900' },
@@ -438,8 +444,8 @@ export function Dashboard({ tambola }: DashboardProps) {
         ))}
       </div>
 
-      {/* ── MAIN GRID: 3 columns, full width ───────────────────────────────── */}
-      <div className="grid grid-cols-3 gap-4 w-full">
+      {/* ── MAIN GRID: 3 columns on desktop, stacked on phones ──────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 w-full">
 
         {/* ── Col 1: Sheet Sales Overview ─── */}
         <div className="rounded-2xl p-5 flex flex-col gap-4" style={CARD}>

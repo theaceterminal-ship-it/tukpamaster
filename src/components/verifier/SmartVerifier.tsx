@@ -94,11 +94,11 @@ export function SmartVerifier({ tambola }: SmartVerifierProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-          <ShieldCheck className="w-6 h-6 text-amber-500" />
+        <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
+          <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6 text-amber-400 shrink-0" />
           Smart Verifier
         </h2>
-        <p className="text-slate-500 mt-1">
+        <p className="text-white/60 text-sm sm:text-base mt-1">
           Instantly verify ticket claims. Enter the ticket ID and dividend type to check if the claim is valid.
         </p>
       </div>

@@ -29,13 +29,13 @@ export function GameHistory({ tambola }: GameHistoryProps) {
     <div className="space-y-5 w-full">
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <History className="w-6 h-6" style={{ color: '#0ea5e9' }} />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
+            <History className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" style={{ color: '#0ea5e9' }} />
             Game History
           </h2>
-          <p className="text-slate-500 mt-1">View all past games, winners, and statistics.</p>
+          <p className="text-white/60 text-sm sm:text-base mt-1">View all past games, winners, and statistics.</p>
         </div>
         {gameHistory.length > 0 && (
           <Button
@@ -65,7 +65,7 @@ export function GameHistory({ tambola }: GameHistoryProps) {
       </Dialog>
 
       {/* ── Stats strip ── */}
-      <div className="grid grid-cols-4 gap-4 w-full">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 w-full">
         {[
           { label: 'Total Games',    value: stats.totalGames,                         icon: History   },
           { label: 'Total Prizes',   value: `₹${totalPrizeDistributed.toLocaleString()}`, icon: DollarSign, str: true },
@@ -94,29 +94,29 @@ export function GameHistory({ tambola }: GameHistoryProps) {
           <p className="text-sm text-slate-400 mt-1">Start your first game from the Live Game page!</p>
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-4 w-full items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 w-full items-start">
 
           {/* Games list — 2 cols wide */}
-          <div className="col-span-2 rounded-2xl p-5" style={CARD}>
+          <div className="lg:col-span-2 rounded-2xl p-4 sm:p-5" style={CARD}>
             <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">All Games</p>
             <div className="space-y-3">
               {gameHistory.slice().reverse().map(game => (
                 <div key={game.id} className="border border-slate-100 rounded-xl overflow-hidden">
-                  <div className="p-3.5 bg-slate-50 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
+                  <div className="p-3 sm:p-3.5 bg-slate-50 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                    <div className="flex items-center gap-3 min-w-0 basis-full sm:basis-auto sm:flex-1">
                       <div className="w-9 h-9 bg-white border border-slate-200 rounded-lg flex items-center justify-center shrink-0">
                         <Calendar className="w-4 h-4 text-blue-500" />
                       </div>
-                      <div>
-                        <p className="font-semibold text-slate-800 text-sm">{game.name}</p>
-                        <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-slate-800 text-sm truncate">{game.name}</p>
+                        <div className="flex items-center flex-wrap gap-x-3 text-xs text-slate-400 mt-0.5">
                           <span>{new Date(game.date).toLocaleDateString()}</span>
                           <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{game.duration} min</span>
                           <span>{game.calledNumbersCount} numbers called</span>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 shrink-0">
+                    <div className="flex items-center gap-3 shrink-0 ml-auto">
                       <div className="text-right">
                         <p className="text-sm font-black text-slate-800 tabular-nums">₹{game.totalPrizeDistributed.toLocaleString()}</p>
                         <p className="text-xs text-slate-400">{game.winners.length} winner{game.winners.length !== 1 ? 's' : ''}</p>
@@ -149,8 +149,8 @@ export function GameHistory({ tambola }: GameHistoryProps) {
           </div>
 
           {/* Activity + summary — 1 col */}
-          <div className="space-y-4">
-            <div className="rounded-2xl p-5" style={CARD}>
+          <div className="space-y-4 w-full min-w-0">
+            <div className="rounded-2xl p-4 sm:p-5" style={CARD}>
               <div className="flex items-center gap-2 mb-4">
                 <TrendingUp className="w-4 h-4" style={{ color: '#0ea5e9' }} />
                 <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Activity Heatmap</p>
@@ -180,7 +180,7 @@ export function GameHistory({ tambola }: GameHistoryProps) {
             </div>
 
             {/* Top earners */}
-            <div className="rounded-2xl p-5" style={CARD}>
+            <div className="rounded-2xl p-4 sm:p-5" style={CARD}>
               <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">Top Games by Prize</p>
               <div className="space-y-2">
                 {[...gameHistory]

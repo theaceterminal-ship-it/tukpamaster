@@ -20,6 +20,111 @@ const CARD: React.CSSProperties = {
   border: '1px solid rgba(0,0,0,0.07)',
 };
 
+function PaymentSettings({ tambola }: { tambola: ReturnType<typeof useTambola> }) {
+  const { sheetPrice, upiSettings, setSheetPrice, setUpiSettings } = tambola;
+
+  // The server row is the baseline; a draft only exists while the operator is
+  // mid-edit, so a realtime echo can never overwrite what they are typing and
+  // there is no effect syncing the two.
+  const server = {
+    sheetPrice: String(sheetPrice || ''),
+    upiId: upiSettings.upiId,
+    merchantName: upiSettings.merchantName,
+    whatsappNumber: upiSettings.whatsappNumber ?? '',
+  };
+  const [draft, setDraft] = useState<typeof server | null>(null);
+  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [err,    setErr]    = useState('');
+
+  const values = draft ?? server;
+
+  const edit = (patch: Partial<typeof server>) => {
+    setStatus('idle');
+    setDraft({ ...values, ...patch });
+  };
+
+  const commit = async () => {
+    if (!draft) return;
+    setStatus('saving'); setErr('');
+    try {
+      const price = parseInt(draft.sheetPrice.replace(/\D/g, ''), 10) || 0;
+      if (price !== sheetPrice) await setSheetPrice(price);
+      await setUpiSettings({
+        upiId: draft.upiId.trim(),
+        merchantName: draft.merchantName.trim(),
+        whatsappNumber: draft.whatsappNumber.trim() || undefined,
+      });
+      setDraft(null);           // fall back to the (now updated) server values
+      setStatus('saved');
+      setTimeout(() => setStatus(st => (st === 'saved' ? 'idle' : st)), 2500);
+    } catch (e) {
+      // Keep the draft so a failed save doesn't throw away what they typed.
+      setStatus('error');
+      setErr(e instanceof Error ? e.message : 'Could not save');
+    }
+  };
+
+  const field = 'w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400';
+
+  return (
+    <div className="sm:col-span-3 xl:col-span-2 rounded-xl p-4 flex flex-col xl:flex-row xl:items-end gap-3" style={CARD}>
+      <div className="flex items-center gap-2 mb-0.5 shrink-0">
+        <Wallet className="w-4 h-4" style={{ color: '#0ea5e9' }} />
+        <p className="text-xs font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap">Payment Settings</p>
+        {status === 'saving' && <span className="text-[11px] text-slate-400">Saving…</span>}
+        {status === 'saved'  && <span className="text-[11px] text-emerald-600 font-semibold">Saved</span>}
+        {draft && status === 'idle' && <span className="text-[11px] text-amber-600">Unsaved</span>}
+      </div>
+      <div className="grid grid-cols-2 xl:flex xl:gap-3 gap-3 flex-1 min-w-0">
+        <div className="xl:w-28 xl:shrink-0">
+          <label className="text-xs text-slate-400 block mb-1">Price / Sheet (₹)</label>
+          <input
+            type="text" inputMode="numeric" className={`${field} font-mono`}
+            value={values.sheetPrice}
+            onChange={e => edit({ sheetPrice: e.target.value.replace(/\D/g, '') })}
+            onBlur={commit}
+            placeholder="50"
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <label className="text-xs text-slate-400 block mb-1">UPI ID</label>
+          <input
+            className={`${field} font-mono`}
+            value={values.upiId}
+            onChange={e => edit({ upiId: e.target.value })}
+            onBlur={commit}
+            onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()}
+            placeholder="yourname@upi"
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <label className="text-xs text-slate-400 block mb-1">Display Name</label>
+          <input
+            className={field}
+            value={values.merchantName}
+            onChange={e => edit({ merchantName: e.target.value })}
+            onBlur={commit}
+            onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()}
+            placeholder="Your Name / Business"
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <label className="text-xs text-slate-400 mb-1 flex items-center gap-1"><MessageCircle className="w-3 h-3 text-green-500" /> WhatsApp Number</label>
+          <input
+            className={`${field} font-mono focus:ring-green-400`}
+            value={values.whatsappNumber}
+            onChange={e => edit({ whatsappNumber: e.target.value.replace(/\D/g, '') })}
+            onBlur={commit}
+            onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()}
+            placeholder="91XXXXXXXXXX"
+          />
+        </div>
+      </div>
+      {status === 'error' && <p className="text-xs text-red-500 xl:w-full">{err}</p>}
+    </div>
+  );
+}
+
 function OrderCard({ order, tambola, onConfirm, onReject }: {
   order: Order;
   tambola: ReturnType<typeof useTambola>;
@@ -54,10 +159,10 @@ function OrderCard({ order, tambola, onConfirm, onReject }: {
   return (
     <div className="border border-slate-100 rounded-xl overflow-hidden">
       <div
-        className="flex items-center gap-3 p-3.5 bg-white cursor-pointer hover:bg-slate-50 transition-colors"
+        className="flex flex-wrap items-center gap-x-3 gap-y-2 p-3 sm:p-3.5 bg-white cursor-pointer hover:bg-slate-50 transition-colors"
         onClick={() => setExpanded(e => !e)}
       >
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-[55%]">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-slate-800 text-sm">{order.playerName}</span>
             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusStyles[order.status]}`}>
@@ -65,14 +170,14 @@ function OrderCard({ order, tambola, onConfirm, onReject }: {
             </span>
             <span className="font-mono text-xs text-slate-400">{order.id}</span>
           </div>
-          <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-400">
+          <div className="flex items-center flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-xs text-slate-400">
             {order.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{order.phone}</span>}
             <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{timeAgo(order.createdAt)}</span>
             <span>{order.sheetIds.length} sheets · <strong className="text-slate-600">₹{order.amount}</strong></span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 ml-auto">
           {order.status === 'pending' && onConfirm && onReject && (
             <>
               <Button size="sm" onClick={e => { e.stopPropagation(); onConfirm(); }} className="h-8 text-xs bg-emerald-500 hover:bg-emerald-600 text-white gap-1">
@@ -94,7 +199,7 @@ function OrderCard({ order, tambola, onConfirm, onReject }: {
 
       {expanded && (
         <div className="px-4 pb-4 pt-2.5 border-t border-slate-100 bg-slate-50 space-y-2">
-          <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
             <div className="flex justify-between">
               <span className="text-slate-400">UTR / Transaction ID</span>
               <span className="font-mono text-slate-700">{order.utr || '—'}</span>
@@ -147,15 +252,15 @@ export function PendingPayments({ tambola }: PendingPaymentsProps) {
 
       {/* ── Header ── */}
       <div>
-        <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-          <ClipboardList className="w-6 h-6" style={{ color: '#0ea5e9' }} />
+        <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
+          <ClipboardList className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" style={{ color: '#0ea5e9' }} />
           Pending Payments
         </h2>
-        <p className="text-slate-500 mt-1">Review player orders and confirm or reject UPI payments.</p>
+        <p className="text-white/60 text-sm sm:text-base mt-1">Review player orders and confirm or reject UPI payments.</p>
       </div>
 
-      {/* ── Stats + UPI settings in one row ── */}
-      <div className="grid grid-cols-5 gap-4 w-full">
+      {/* ── Stats + UPI settings: one row on desktop, stacked on phones ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 w-full">
 
         {/* 3 stat boxes */}
         <div className="rounded-xl p-4 flex items-center gap-3 cursor-pointer" style={CARD} onClick={() => setTab('pending')}>
@@ -188,63 +293,18 @@ export function PendingPayments({ tambola }: PendingPaymentsProps) {
           </div>
         </div>
 
-        {/* UPI settings — spans remaining 2 cols */}
-        <div className="col-span-2 rounded-xl p-4 flex items-end gap-3" style={CARD}>
-          <div className="flex items-center gap-2 mb-0.5 shrink-0">
-            <Wallet className="w-4 h-4" style={{ color: '#0ea5e9' }} />
-            <p className="text-xs font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap">Payment Settings</p>
-          </div>
-          <div className="flex gap-3 flex-1 min-w-0">
-            <div className="w-28 shrink-0">
-              <label className="text-xs text-slate-400 block mb-1">Price / Sheet (₹)</label>
-              <input
-                type="text" inputMode="numeric"
-                className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-amber-400"
-                value={tambola.sheetPrice || ''}
-                onChange={e => tambola.setSheetPrice(parseInt(e.target.value.replace(/\D/g, '')) || 0)}
-                placeholder="50"
-              />
-            </div>
-            <div className="flex-1 min-w-0">
-              <label className="text-xs text-slate-400 block mb-1">UPI ID</label>
-              <input
-                className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-amber-400"
-                value={tambola.upiSettings.upiId}
-                onChange={e => tambola.setUpiSettings({ ...tambola.upiSettings, upiId: e.target.value })}
-                placeholder="yourname@upi"
-              />
-            </div>
-            <div className="flex-1 min-w-0">
-              <label className="text-xs text-slate-400 block mb-1">Display Name</label>
-              <input
-                className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-                value={tambola.upiSettings.merchantName}
-                onChange={e => tambola.setUpiSettings({ ...tambola.upiSettings, merchantName: e.target.value })}
-                placeholder="Your Name / Business"
-              />
-            </div>
-            <div className="flex-1 min-w-0">
-              <label className="text-xs text-slate-400 block mb-1 flex items-center gap-1"><MessageCircle className="w-3 h-3 text-green-500" /> WhatsApp Number</label>
-              <input
-                className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-400"
-                value={tambola.upiSettings.whatsappNumber ?? ''}
-                onChange={e => tambola.setUpiSettings({ ...tambola.upiSettings, whatsappNumber: e.target.value.replace(/\D/g, '') })}
-                placeholder="91XXXXXXXXXX"
-              />
-            </div>
-          </div>
-        </div>
+        <PaymentSettings tambola={tambola} />
       </div>
 
       {/* ── Orders list ── */}
       <div className="rounded-2xl overflow-hidden w-full" style={CARD}>
         {/* Tabs */}
-        <div className="flex border-b border-slate-100 px-5 pt-1">
+        <div className="flex border-b border-slate-100 px-3 sm:px-5 pt-1 overflow-x-auto scrollbar-hide">
           {(['pending', 'confirmed', 'rejected'] as Tab[]).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`pb-3 px-4 text-sm font-medium border-b-2 -mb-px transition-colors capitalize ${
+              className={`pb-3 px-3 sm:px-4 text-sm font-medium border-b-2 -mb-px transition-colors capitalize whitespace-nowrap ${
                 tab === t ? 'border-amber-500 text-amber-600' : 'border-transparent text-slate-400 hover:text-slate-700'
               }`}
             >
@@ -254,7 +314,7 @@ export function PendingPayments({ tambola }: PendingPaymentsProps) {
           ))}
         </div>
 
-        <div className="p-5">
+        <div className="p-3 sm:p-5">
           {displayed.length === 0 ? (
             <div className="text-center py-12">
               <Package className="w-10 h-10 text-slate-300 mx-auto mb-2" />

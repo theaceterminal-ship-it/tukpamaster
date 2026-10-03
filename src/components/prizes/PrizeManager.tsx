@@ -82,15 +82,15 @@ export function PrizeManager({ tambola }: PrizeManagerProps) {
     <div className="space-y-5 w-full">
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <Trophy className="w-6 h-6" style={{ color: '#0ea5e9' }} />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
+            <Trophy className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" style={{ color: '#0ea5e9' }} />
             Prize Manager
           </h2>
-          <p className="text-slate-500 mt-1">Configure prize categories, track winners, and manage payouts.</p>
+          <p className="text-white/60 text-sm sm:text-base mt-1">Configure prize categories, track winners, and manage payouts.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {currentGame && (
             <Dialog open={isClaimOpen} onOpenChange={setIsClaimOpen}>
               <DialogTrigger asChild>
@@ -159,7 +159,7 @@ export function PrizeManager({ tambola }: PrizeManagerProps) {
       </div>
 
       {/* ── Stats strip ── */}
-      <div className="grid grid-cols-3 gap-4 w-full">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 w-full">
         {[
           { label: 'Total Prize Pool', value: `₹${totalPrizePool.toLocaleString()}`, icon: DollarSign, color: 'text-gray-900' },
           { label: 'Claimed',          value: claimedPrizes.length,                  icon: CheckCircle, color: 'text-emerald-600' },
@@ -178,10 +178,10 @@ export function PrizeManager({ tambola }: PrizeManagerProps) {
       </div>
 
       {/* ── Main content: Prizes list + Winners side by side ── */}
-      <div className="grid grid-cols-3 gap-4 w-full items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 w-full items-start">
 
         {/* Prizes list — 2 cols wide */}
-        <div className="col-span-2 rounded-2xl p-5" style={CARD}>
+        <div className="lg:col-span-2 rounded-2xl p-4 sm:p-5" style={CARD}>
           <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">All Prizes</p>
           {allDividends.length === 0 ? (
             <div className="text-center py-12">
@@ -195,25 +195,25 @@ export function PrizeManager({ tambola }: PrizeManagerProps) {
                 <div
                   key={dividend.id}
                   className={cn(
-                    'flex items-center justify-between p-3.5 border rounded-xl',
+                    'flex flex-wrap items-center justify-between gap-x-3 gap-y-2 p-3 sm:p-3.5 border rounded-xl',
                     dividend.claimed ? 'border-emerald-200 bg-emerald-50' : 'border-slate-100 hover:bg-slate-50'
                   )}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center', dividend.claimed ? 'bg-emerald-100' : 'bg-amber-100')}>
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center shrink-0', dividend.claimed ? 'bg-emerald-100' : 'bg-amber-100')}>
                       {dividend.claimed
                         ? <CheckCircle className="w-4 h-4 text-emerald-600" />
                         : <Trophy className="w-4 h-4 text-amber-600" />
                       }
                     </div>
-                    <div>
-                      <p className={cn('font-medium text-sm', dividend.claimed && 'line-through text-slate-400')}>
+                    <div className="min-w-0">
+                      <p className={cn('font-medium text-sm truncate', dividend.claimed && 'line-through text-slate-400')}>
                         {dividend.name}
                       </p>
                       {dividend.winner && <p className="text-xs text-emerald-600">Winner: {dividend.winner}</p>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 shrink-0 ml-auto">
                     <span className={cn('text-base font-black tabular-nums', dividend.claimed ? 'text-emerald-600' : 'text-slate-800')}>
                       ₹{dividend.prize.toLocaleString()}
                     </span>
@@ -229,7 +229,7 @@ export function PrizeManager({ tambola }: PrizeManagerProps) {
         </div>
 
         {/* Winners summary — 1 col */}
-        <div className="rounded-2xl p-5" style={CARD}>
+        <div className="rounded-2xl p-4 sm:p-5 w-full" style={CARD}>
           <div className="flex items-center gap-2 mb-4">
             <CheckCircle className="w-4 h-4 text-emerald-500" />
             <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Winners</p>
@@ -250,7 +250,7 @@ export function PrizeManager({ tambola }: PrizeManagerProps) {
                       </span>
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-slate-800 truncate max-w-[120px]">{prize.winner}</p>
+                      <p className="text-sm font-semibold text-slate-800 truncate max-w-[40vw] sm:max-w-[120px]">{prize.winner}</p>
                       <p className="text-xs text-slate-400">{prize.name}</p>
                     </div>
                   </div>
